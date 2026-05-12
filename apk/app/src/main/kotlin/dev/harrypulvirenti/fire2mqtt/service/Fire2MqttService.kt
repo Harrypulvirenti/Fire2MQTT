@@ -14,9 +14,12 @@ import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
 import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
+import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
+import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
 import dev.harrypulvirenti.fire2mqtt.mqtt.DevicePayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.Fire2MqttClient
 import dev.harrypulvirenti.fire2mqtt.mqtt.MqttConfig
+import dev.harrypulvirenti.fire2mqtt.mqtt.ScreenPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
@@ -36,17 +39,29 @@ class Fire2MqttService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var mqttClient: Fire2MqttClient? = null
     private var commandRouter: CommandRouter? = null
+    private var pipelineJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
-        scope.launch { startPipeline() }
+        val previousPipeline = pipelineJob
+        pipelineJob = scope.launch {
+            if (previousPipeline?.isActive == true) {
+                Log.d(TAG, "Pipeline already running — restarting with latest settings")
+                previousPipeline.cancelAndJoin()
+                mqttClient?.disconnect()
+                mqttClient = null
+                commandRouter = null
+            }
+            startPipeline()
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         scope.cancel()
+        pipelineJob = null
         mqttClient?.disconnect()
         super.onDestroy()
     }
@@ -66,8 +81,22 @@ class Fire2MqttService : Service() {
             return
         }
 
+        // Resolve and pin: hand HiveMQ a validated IP literal so its auto-reconnect
+        // can't drift to a different (potentially public) DNS answer later.
+        val resolvedHost = BrokerHostValidator.resolveToPrivateAddress(host)
+        if (resolvedHost == null) {
+            Log.e(
+                TAG,
+                "Broker host '$host' did not resolve to a private/LAN address (or " +
+                    "had a public candidate among its answers) — refusing to connect " +
+                    "over cleartext. Configure an RFC1918 IP, loopback, or link-local broker.",
+            )
+            stopSelf()
+            return
+        }
+
         val config = MqttConfig(
-            host = host,
+            host = resolvedHost,
             port = port,
             username = username,
             password = password,
@@ -80,12 +109,9 @@ class Fire2MqttService : Service() {
         val client = Fire2MqttClient(config)
         mqttClient = client
 
-        if (!client.connect()) {
-            Log.e(TAG, "Could not connect to broker — will retry on next START_STICKY")
-            return
-        }
-
-        // Publish device info + online status
+        // Pre-seed the retained-state cache before connecting. These publishes
+        // no-op the network send (client not built yet) but populate the cache
+        // so the very first CONNACK can replay them via republishRetained().
         client.publish(TopicSchema.status(prefix, deviceId), "online", retain = true)
         client.publish(
             TopicSchema.stateDevice(prefix, deviceId),
@@ -93,71 +119,97 @@ class Fire2MqttService : Service() {
             retain = true,
         )
 
-        // Subscribe to command topics
-        client.subscribe(
-            TopicSchema.cmdLaunch(prefix, deviceId),
-            TopicSchema.cmdKey(prefix, deviceId),
-            TopicSchema.cmdVolume(prefix, deviceId),
-            TopicSchema.cmdPower(prefix, deviceId),
-            TopicSchema.cmdMedia(prefix, deviceId),
-        )
-        commandRouter = CommandRouter(this, prefix, deviceId)
-
-        // Route incoming commands
-        scope.launch {
-            client.incomingMessages().collect { (topic, payload) ->
-                commandRouter?.route(topic, payload)
-            }
+        // Replay every retained topic and re-issue command subscriptions on
+        // every (re)connect. HiveMQ fires this on the first CONNACK and after
+        // each auto-reconnect. Watcher publishes between connects update the
+        // cache, so playback/app/screen/volume are restored alongside
+        // status + device even when the broker lost session state.
+        // MQTT 5 SUBSCRIBE is idempotent, so re-issuing is safe.
+        client.setOnConnected {
+            client.republishRetained()
+            client.subscribe(
+                TopicSchema.cmdLaunch(prefix, deviceId),
+                TopicSchema.cmdKey(prefix, deviceId),
+                TopicSchema.cmdVolume(prefix, deviceId),
+                TopicSchema.cmdPower(prefix, deviceId),
+                TopicSchema.cmdMedia(prefix, deviceId),
+            )
         }
 
-        // MediaSession playback events
+        // Initial connect with exponential backoff. HiveMQ's auto-reconnect only
+        // engages after the first successful CONNACK, so we own retries until then.
+        var backoffMs = 2_000L
+        while (!client.connect()) {
+            Log.w(TAG, "Initial broker connect failed — retrying in ${backoffMs}ms")
+            delay(backoffMs)
+            backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
+        }
+
+        commandRouter = CommandRouter(this, prefix, deviceId)
         val mediaWatcher = MediaSessionWatcher(
             this,
             ComponentName(this, MediaNotificationListener::class.java)
         )
-        scope.launch {
-            mediaWatcher.playbackEvents()
-                .catch { Log.e(TAG, "MediaSession error: ${it.message}") }
-                .collect { payload ->
-                    client.publish(
-                        TopicSchema.statePlayback(prefix, deviceId),
-                        Json.encodeToString(payload),
-                        retain = true,
-                    )
-                }
-        }
 
-        // Foreground app
-        scope.launch {
-            ForegroundAppWatcher(this@Fire2MqttService).foregroundAppFlow()
-                .catch { Log.e(TAG, "ForegroundApp error: ${it.message}") }
-                .collect { event ->
-                    val appJson = """{"package":"${event.packageName}","name":"${event.appName}","ts":${System.currentTimeMillis()}}"""
-                    client.publish(TopicSchema.stateApp(prefix, deviceId), appJson, retain = true)
+        // All long-lived collectors run as children of pipelineJob via coroutineScope.
+        // coroutineScope suspends until every child completes; the flows are infinite
+        // so pipelineJob stays active for the pipeline's lifetime, and the
+        // duplicate-start guard in onStartCommand actually holds.
+        coroutineScope {
+            // Route incoming commands
+            launch {
+                client.incomingMessages().collect { (topic, payload) ->
+                    commandRouter?.route(topic, payload)
                 }
-        }
+            }
 
-        // Screen state
-        scope.launch {
-            ScreenWatcher(this@Fire2MqttService).screenStateFlow()
-                .catch { Log.e(TAG, "Screen error: ${it.message}") }
-                .collect { on ->
-                    val json = """{"on":$on,"ts":${System.currentTimeMillis()}}"""
-                    client.publish(TopicSchema.stateScreen(prefix, deviceId), json, retain = true)
-                }
-        }
+            // MediaSession playback events
+            launch {
+                mediaWatcher.playbackEvents()
+                    .catch { Log.e(TAG, "MediaSession error: ${it.message}") }
+                    .collect { payload ->
+                        client.publish(
+                            TopicSchema.statePlayback(prefix, deviceId),
+                            Json.encodeToString(payload),
+                            retain = true,
+                        )
+                    }
+            }
 
-        // Volume
-        scope.launch {
-            VolumeWatcher(this@Fire2MqttService).volumeFlow()
-                .catch { Log.e(TAG, "Volume error: ${it.message}") }
-                .collect { vol ->
-                    client.publish(
-                        TopicSchema.stateVolume(prefix, deviceId),
-                        Json.encodeToString(vol),
-                        retain = true,
-                    )
-                }
+            // Foreground app
+            launch {
+                ForegroundAppWatcher(this@Fire2MqttService).foregroundAppFlow()
+                    .catch { Log.e(TAG, "ForegroundApp error: ${it.message}") }
+                    .collect { event ->
+                        val appJson = Json.encodeToString(
+                            AppPayload(`package` = event.packageName, name = event.appName)
+                        )
+                        client.publish(TopicSchema.stateApp(prefix, deviceId), appJson, retain = true)
+                    }
+            }
+
+            // Screen state
+            launch {
+                ScreenWatcher(this@Fire2MqttService).screenStateFlow()
+                    .catch { Log.e(TAG, "Screen error: ${it.message}") }
+                    .collect { on ->
+                        val json = Json.encodeToString(ScreenPayload(on = on))
+                        client.publish(TopicSchema.stateScreen(prefix, deviceId), json, retain = true)
+                    }
+            }
+
+            // Volume
+            launch {
+                VolumeWatcher(this@Fire2MqttService).volumeFlow()
+                    .catch { Log.e(TAG, "Volume error: ${it.message}") }
+                    .collect { vol ->
+                        client.publish(
+                            TopicSchema.stateVolume(prefix, deviceId),
+                            Json.encodeToString(vol),
+                            retain = true,
+                        )
+                    }
+            }
         }
     }
 

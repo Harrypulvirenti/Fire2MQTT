@@ -1,6 +1,8 @@
 package dev.harrypulvirenti.fire2mqtt.commands
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.media.AudioManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.KeyEvent
@@ -33,11 +35,19 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     fun dispatchKey(keyCode: Int) {
-        val down = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
-        val up = KeyEvent(KeyEvent.ACTION_UP, keyCode)
-        dispatchGesture(null, null, null)  // keep service alive
-        sendKeyEvent(down)
-        sendKeyEvent(up)
+        val globalAction = when (keyCode) {
+            KeyEvent.KEYCODE_HOME -> GLOBAL_ACTION_HOME
+            KeyEvent.KEYCODE_BACK -> GLOBAL_ACTION_BACK
+            KeyEvent.KEYCODE_APP_SWITCH -> GLOBAL_ACTION_RECENTS
+            else -> null
+        }
+        if (globalAction != null) {
+            performGlobalAction(globalAction)
+            return
+        }
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
     companion object {

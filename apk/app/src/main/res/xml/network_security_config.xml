@@ -1,10 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Allow cleartext traffic to local MQTT brokers on the home network -->
+<!--
+    Fire2MQTT is a LAN-only sideloaded app for Fire TV. It makes exactly
+    one network call: MQTT to a user-configured broker (typically Mosquitto
+    on the same home subnet, port 1883).
+
+    Why a process-wide cleartext allow rather than a narrow allowlist:
+    - Android network_security_config <domain> entries are literal hostname
+      or IP matches; there is no syntax for an IPv4 subnet range
+      (e.g. 192.168.0.0/16). The broker host is only known at runtime, so
+      an install-time allowlist cannot cover the user's LAN.
+    - The app has no other outbound network paths; INTERNET is held purely
+      for MQTT. There are no analytics, no remote config, no crash
+      reporters, no HTTP clients.
+    - TLS to a home MQTT broker is out of scope for v1 (most default
+      Mosquitto installs are not TLS-configured).
+
+    A future revision that adds outbound HTTP for anything else MUST
+    revisit this policy.
+-->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">192.168.0.0</domain>
-        <domain includeSubdomains="true">10.0.0.0</domain>
-        <domain includeSubdomains="true">172.16.0.0</domain>
-    </domain-config>
-    <base-config cleartextTrafficPermitted="false" />
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

@@ -1,0 +1,23 @@
+[versions]
+agp = "9.2.0"
+kotlin = "2.3.21"
+kotlinxCoroutines = "1.11.0"
+kotlinxSerialization = "1.11.0"
+androidxCore = "1.18.0"
+androidxAppcompat = "1.7.1"
+androidxPreference = "1.2.1"
+androidxLifecycle = "2.10.0"
+material = "1.13.0"
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+androidx-preference-ktx = { module = "androidx.preference:preference-ktx", version.ref = "androidxPreference" }
+androidx-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "androidxLifecycle" }

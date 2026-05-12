@@ -1,17 +1,20 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 android {
     namespace = "dev.harrypulvirenti.fire2mqtt"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.harrypulvirenti.fire2mqtt"
         minSdk = 25         // Fire OS 7 (Android 7.1)
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -23,13 +26,13 @@ android {
         }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/io.netty.versions.properties",
+            )
+        }
     }
 
     buildFeatures {
@@ -39,7 +42,7 @@ android {
 
 dependencies {
     // HiveMQ MQTT 5 Kotlin client — coroutine-native, better lifecycle than paho
-    implementation("com.hivemq:hivemq-mqtt-client-kotlin-coroutines:1.3.3")
+    implementation("com.hivemq:hivemq-mqtt-client:1.3.14")
 
     // Kotlin serialization for JSON payloads
     implementation(libs.kotlinx.serialization.json)
