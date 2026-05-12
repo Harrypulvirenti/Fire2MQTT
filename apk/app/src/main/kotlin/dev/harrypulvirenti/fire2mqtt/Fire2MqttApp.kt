@@ -4,11 +4,14 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.LogcatWriter
 
 class Fire2MqttApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Logger.addLogWriter(LogcatWriter())
         createNotificationChannel()
     }
 

@@ -1,6 +1,6 @@
 package dev.harrypulvirenti.fire2mqtt.mqtt
 
-import android.util.Log
+import co.touchlab.kermit.Logger
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-private const val TAG = "Fire2MQTT/MqttClient"
+private val logger = Logger.withTag("Fire2MQTT/MqttClient")
 
 data class MqttConfig(
     val host: String,
@@ -61,7 +61,7 @@ class Fire2MqttClient(private val config: MqttConfig) {
                 .automaticReconnectWithDefaultConfig()
                 .addConnectedListener { onConnected?.invoke() }
                 .addDisconnectedListener { ctx ->
-                    Log.w(TAG, "Disconnected from broker: ${ctx.cause.message}; auto-reconnect armed")
+                    logger.w { "Disconnected from broker: ${ctx.cause.message}; auto-reconnect armed" }
                 }
                 .willPublish(
                     Mqtt5WillPublish.builder()
@@ -85,7 +85,7 @@ class Fire2MqttClient(private val config: MqttConfig) {
                 .cleanStart(false)
                 .send()
                 .get()
-            Log.i(TAG, "Connected to ${config.host}:${config.port}")
+            logger.i { "Connected to ${config.host}:${config.port}" }
             true
         } catch (e: Exception) {
             runCatching {
@@ -97,7 +97,7 @@ class Fire2MqttClient(private val config: MqttConfig) {
             if (client === newClient) {
                 client = null
             }
-            Log.e(TAG, "Connection failed: ${e.message}")
+            logger.e(e) { "Connection failed: ${e.message}" }
             false
         }
     }
@@ -130,7 +130,7 @@ class Fire2MqttClient(private val config: MqttConfig) {
         }
         val c = client
         if (c == null) {
-            Log.w(TAG, "Publish dropped (disconnected, non-retained): $topic")
+            logger.w { "Publish dropped (disconnected, non-retained): $topic" }
             return
         }
         c.publishWith()
@@ -165,7 +165,7 @@ class Fire2MqttClient(private val config: MqttConfig) {
             }.orElse("")
             val result = incomingMessageChannel.trySend(topic to payload)
             if (result.isFailure) {
-                Log.w(TAG, "Incoming MQTT message dropped: $topic")
+                logger.w { "Incoming MQTT message dropped: $topic" }
             }
         }
     }

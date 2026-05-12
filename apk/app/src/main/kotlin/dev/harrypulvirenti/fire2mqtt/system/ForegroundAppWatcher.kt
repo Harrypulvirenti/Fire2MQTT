@@ -3,12 +3,12 @@ package dev.harrypulvirenti.fire2mqtt.system
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import android.util.Log
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-private const val TAG = "Fire2MQTT/ForegroundApp"
+private val logger = Logger.withTag("Fire2MQTT/ForegroundApp")
 private const val POLL_INTERVAL_MS = 1_000L
 
 data class ForegroundAppEvent(val packageName: String, val appName: String)
@@ -46,7 +46,7 @@ class ForegroundAppWatcher(private val context: Context) {
             }
             lastForeground
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to query usage events: ${e.message}")
+            logger.e(e) { "Failed to query usage events: ${e.message}" }
             null
         }
     }
