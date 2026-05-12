@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Fire TV Stick",
+        "description": "Enter a name and a unique device ID for your Fire TV Stick. The device ID must match the one configured in the Fire2MQTT APK.\n\nSee [MQTT schema docs]({mqtt_schema_url}) for topic details.",
+        "data": {
+          "device_name": "Device name",
+          "device_id": "Device ID (slug, e.g. living_room_fire_tv)",
+          "topic_prefix": "MQTT topic prefix"
+        }
+      }
+    },
+    "error": {
+      "invalid_device_id": "Device ID must only contain lowercase letters, digits, and underscores.",
+      "apk_not_reachable": "The APK did not respond on the status topic. Check the APK is running and the device ID matches. You can proceed anyway — state will populate when the APK comes online. Check 'Continue anyway' to proceed.",
+      "already_configured": "This device is already configured."
+    },
+    "abort": {
+      "mqtt_not_configured": "The MQTT integration must be configured before setting up Fire2MQTT.",
+      "already_configured": "This device ID is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Fire2MQTT options",
+        "data": {
+          "enabled_apps": "App launcher buttons to create",
+          "idle_timeout": "Minutes on launcher before reporting 'off'"
+        }
+      }
+    }
+  }
+}

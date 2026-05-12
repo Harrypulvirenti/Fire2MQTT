@@ -1,0 +1,27 @@
+alias: "Fire TV — Dim lights when playing"
+description: "Dims the living room lights when Fire TV starts playing, restores them when paused or idle."
+trigger:
+  - platform: state
+    entity_id: media_player.living_room_fire_tv
+    to: "playing"
+    id: started_playing
+  - platform: state
+    entity_id: media_player.living_room_fire_tv
+    to:
+      - "paused"
+      - "idle"
+      - "off"
+    id: stopped_playing
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: started_playing
+        sequence:
+          - scene: scene.living_room_movie_dim
+      - conditions:
+          - condition: trigger
+            id: stopped_playing
+        sequence:
+          - scene: scene.living_room_normal
+mode: single

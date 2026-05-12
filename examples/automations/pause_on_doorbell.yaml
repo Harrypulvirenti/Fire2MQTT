@@ -1,0 +1,24 @@
+alias: "Fire TV — Pause when doorbell rings"
+description: "Pauses the Fire TV when the doorbell rings. Auto-resumes after 60 seconds if still paused."
+trigger:
+  - platform: state
+    entity_id: binary_sensor.front_door_doorbell
+    to: "on"
+condition:
+  - condition: state
+    entity_id: media_player.living_room_fire_tv
+    state: "playing"
+action:
+  - service: media_player.media_pause
+    target:
+      entity_id: media_player.living_room_fire_tv
+  - delay:
+      seconds: 60
+  - condition: state
+    entity_id: media_player.living_room_fire_tv
+    state: "paused"
+  - service: media_player.media_play
+    target:
+      entity_id: media_player.living_room_fire_tv
+mode: single
+max_exceeded: silent

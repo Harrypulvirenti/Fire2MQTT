@@ -1,0 +1,25 @@
+alias: "Fire TV — Activate 'Watching TV' scene"
+description: "Triggers a 'Watching TV' scene when a streaming app starts playing."
+trigger:
+  - platform: state
+    entity_id: media_player.living_room_fire_tv
+    to: "playing"
+condition:
+  # Only trigger for known streaming apps (not Spotify audio, etc.)
+  - condition: template
+    value_template: >
+      {{
+        states('sensor.living_room_fire_tv_current_app_package') in [
+          'com.crunchyroll.crunchyroid',
+          'com.netflix.ninja',
+          'com.amazon.avod.thirdpartyclient',
+          'com.amazon.firetv.youtube',
+          'com.disney.disneyplus',
+          'org.jellyfin.androidtv',
+          'com.plexapp.android',
+          'tv.emby.embyatv',
+        ]
+      }}
+action:
+  - scene: scene.watching_tv
+mode: single

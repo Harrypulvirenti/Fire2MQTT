@@ -1,0 +1,40 @@
+alias: "Fire TV — Pause when room is empty, resume when someone returns"
+description: "Pauses playback 2 minutes after the room becomes empty. Resumes when someone returns."
+trigger:
+  - platform: state
+    entity_id: binary_sensor.living_room_occupancy
+    to: "off"
+    for:
+      minutes: 2
+    id: room_empty
+  - platform: state
+    entity_id: binary_sensor.living_room_occupancy
+    to: "on"
+    id: room_occupied
+variables:
+  was_paused_by_automation: false
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: room_empty
+          - condition: state
+            entity_id: media_player.living_room_fire_tv
+            state: "playing"
+        sequence:
+          - variables:
+              was_paused_by_automation: true
+          - service: media_player.media_pause
+            target:
+              entity_id: media_player.living_room_fire_tv
+      - conditions:
+          - condition: trigger
+            id: room_occupied
+          - condition: state
+            entity_id: media_player.living_room_fire_tv
+            state: "paused"
+        sequence:
+          - service: media_player.media_play
+            target:
+              entity_id: media_player.living_room_fire_tv
+mode: restart

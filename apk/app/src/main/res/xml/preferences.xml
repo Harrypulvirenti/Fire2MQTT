@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="MQTT Broker">
+        <EditTextPreference
+            android:key="broker_host"
+            android:title="@string/pref_broker_host"
+            android:hint="192.168.1.100"
+            android:inputType="textUri"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:key="broker_port"
+            android:title="@string/pref_broker_port"
+            android:defaultValue="1883"
+            android:inputType="number"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:key="broker_username"
+            android:title="@string/pref_broker_username"
+            android:inputType="text"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:key="broker_password"
+            android:title="@string/pref_broker_password"
+            android:inputType="textPassword"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Device">
+        <EditTextPreference
+            android:key="device_id"
+            android:title="@string/pref_device_id"
+            android:defaultValue="fire_tv"
+            android:hint="living_room_fire_tv"
+            android:inputType="text"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:key="topic_prefix"
+            android:title="@string/pref_topic_prefix"
+            android:defaultValue="fire2mqtt"
+            android:inputType="text"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,56 @@
+package dev.harrypulvirenti.fire2mqtt.commands
+
+import android.accessibilityservice.AccessibilityService
+import android.util.Log
+import android.view.accessibility.AccessibilityEvent
+import android.view.KeyEvent
+
+private const val TAG = "Fire2MQTT/Accessibility"
+
+/**
+ * AccessibilityService used for key event injection (HOME, BACK, DPAD, etc.).
+ *
+ * Note: INJECT_EVENTS requires system signature for a sideloaded APK. This service
+ * provides the only viable alternative — AccessibilityService global actions + key events.
+ * User must enable it in Settings > Accessibility.
+ *
+ * Key presses are dispatched by calling the static [sendKey] method from the service,
+ * which is called by [CommandRouter].
+ */
+class Fire2MqttAccessibilityService : AccessibilityService() {
+
+    override fun onServiceConnected() {
+        Log.i(TAG, "Accessibility service connected")
+        instance = this
+    }
+
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        instance = null
+        return super.onUnbind(intent)
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onInterrupt() = Unit
+
+    fun dispatchKey(keyCode: Int) {
+        val down = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
+        val up = KeyEvent(KeyEvent.ACTION_UP, keyCode)
+        dispatchGesture(null, null, null)  // keep service alive
+        sendKeyEvent(down)
+        sendKeyEvent(up)
+    }
+
+    companion object {
+        var instance: Fire2MqttAccessibilityService? = null
+
+        fun sendKey(keyCode: Int): Boolean {
+            return instance?.let {
+                it.dispatchKey(keyCode)
+                true
+            } ?: run {
+                Log.w(TAG, "AccessibilityService not connected — key $keyCode dropped")
+                false
+            }
+        }
+    }
+}

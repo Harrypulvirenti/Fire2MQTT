@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fire2MQTT</string>
+    <string name="pref_broker_host">Broker Host</string>
+    <string name="pref_broker_port">Broker Port</string>
+    <string name="pref_broker_username">Username (optional)</string>
+    <string name="pref_broker_password">Password (optional)</string>
+    <string name="pref_device_id">Device ID</string>
+    <string name="pref_topic_prefix">Topic Prefix</string>
+    <string name="btn_start_service">Start Service</string>
+    <string name="btn_grant_usage">Grant Usage Access</string>
+    <string name="btn_grant_notification">Grant Notification Access</string>
+    <string name="btn_grant_accessibility">Grant Accessibility Access</string>
+    <string name="btn_done">I\'m Done</string>
+</resources>

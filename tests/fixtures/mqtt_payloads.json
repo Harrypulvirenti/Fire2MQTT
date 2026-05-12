@@ -1,0 +1,55 @@
+{
+  "status_online": "online",
+  "status_offline": "offline",
+  "device_info": {
+    "model": "Fire TV Stick 4K",
+    "fire_os": "8.2.2.1",
+    "ip": "192.168.1.50",
+    "mac": "de:ad:be:ef:00:01",
+    "schema_version": 1
+  },
+  "playback_playing": {
+    "media_session_state": 3,
+    "app": "com.crunchyroll.crunchyroid",
+    "title": "Demon Slayer S4E01",
+    "artist": null,
+    "album": null,
+    "duration_ms": 1380000,
+    "position_ms": 240000,
+    "ts": 1747000000000
+  },
+  "playback_paused": {
+    "media_session_state": 2,
+    "app": "com.crunchyroll.crunchyroid",
+    "title": "Demon Slayer S4E01",
+    "artist": null,
+    "album": null,
+    "duration_ms": 1380000,
+    "position_ms": 300000,
+    "ts": 1747000060000
+  },
+  "playback_idle": {
+    "media_session_state": 0,
+    "app": "dev.amazon.ignite",
+    "title": null,
+    "artist": null,
+    "album": null,
+    "duration_ms": null,
+    "position_ms": null,
+    "ts": 1747000120000
+  },
+  "app_crunchyroll": {
+    "package": "com.crunchyroll.crunchyroid",
+    "name": "Crunchyroll",
+    "ts": 1747000000000
+  },
+  "app_home": {
+    "package": "dev.amazon.ignite",
+    "name": "Fire TV",
+    "ts": 1747000120000
+  },
+  "screen_on": {"on": true, "ts": 1747000000000},
+  "screen_off": {"on": false, "ts": 1747000100000},
+  "volume_8_of_15": {"level": 8, "max": 15, "mute": false, "ts": 1747000000000},
+  "volume_muted": {"level": 8, "max": 15, "mute": true, "ts": 1747000010000}
+}
