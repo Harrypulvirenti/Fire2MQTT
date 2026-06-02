@@ -7,8 +7,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
+import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.Fire2MqttApp
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
@@ -31,7 +31,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.NetworkInterface
 
-private const val TAG = "Fire2MQTT/Service"
+private val logger = Logger.withTag("Fire2MQTT/Service")
 private const val NOTIFICATION_ID = 1
 
 class Fire2MqttService : Service() {
@@ -48,7 +48,7 @@ class Fire2MqttService : Service() {
         val previousPipeline = pipelineJob
         pipelineJob = scope.launch {
             if (previousPipeline?.isActive == true) {
-                Log.d(TAG, "Pipeline already running — restarting with latest settings")
+                logger.d { "Pipeline already running — restarting with latest settings" }
                 previousPipeline.cancelAndJoin()
                 mqttClient?.disconnect()
                 mqttClient = null
@@ -76,7 +76,7 @@ class Fire2MqttService : Service() {
         val password = prefs.getString("broker_password", null)
 
         if (host.isBlank()) {
-            Log.e(TAG, "Broker host not configured — stopping service")
+            logger.e { "Broker host not configured — stopping service" }
             stopSelf()
             return
         }
@@ -85,12 +85,11 @@ class Fire2MqttService : Service() {
         // can't drift to a different (potentially public) DNS answer later.
         val resolvedHost = BrokerHostValidator.resolveToPrivateAddress(host)
         if (resolvedHost == null) {
-            Log.e(
-                TAG,
+            logger.e {
                 "Broker host '$host' did not resolve to a private/LAN address (or " +
                     "had a public candidate among its answers) — refusing to connect " +
-                    "over cleartext. Configure an RFC1918 IP, loopback, or link-local broker.",
-            )
+                    "over cleartext. Configure an RFC1918 IP, loopback, or link-local broker."
+            }
             stopSelf()
             return
         }
@@ -140,7 +139,7 @@ class Fire2MqttService : Service() {
         // engages after the first successful CONNACK, so we own retries until then.
         var backoffMs = 2_000L
         while (!client.connect()) {
-            Log.w(TAG, "Initial broker connect failed — retrying in ${backoffMs}ms")
+            logger.w { "Initial broker connect failed — retrying in ${backoffMs}ms" }
             delay(backoffMs)
             backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
         }
@@ -166,7 +165,7 @@ class Fire2MqttService : Service() {
             // MediaSession playback events
             launch {
                 mediaWatcher.playbackEvents()
-                    .catch { Log.e(TAG, "MediaSession error: ${it.message}") }
+                    .catch { logger.e(it) { "MediaSession error: ${it.message}" } }
                     .collect { payload ->
                         client.publish(
                             TopicSchema.statePlayback(prefix, deviceId),
@@ -179,7 +178,7 @@ class Fire2MqttService : Service() {
             // Foreground app
             launch {
                 ForegroundAppWatcher(this@Fire2MqttService).foregroundAppFlow()
-                    .catch { Log.e(TAG, "ForegroundApp error: ${it.message}") }
+                    .catch { logger.e(it) { "ForegroundApp error: ${it.message}" } }
                     .collect { event ->
                         val appJson = Json.encodeToString(
                             AppPayload(`package` = event.packageName, name = event.appName)
@@ -191,7 +190,7 @@ class Fire2MqttService : Service() {
             // Screen state
             launch {
                 ScreenWatcher(this@Fire2MqttService).screenStateFlow()
-                    .catch { Log.e(TAG, "Screen error: ${it.message}") }
+                    .catch { logger.e(it) { "Screen error: ${it.message}" } }
                     .collect { on ->
                         val json = Json.encodeToString(ScreenPayload(on = on))
                         client.publish(TopicSchema.stateScreen(prefix, deviceId), json, retain = true)
@@ -201,7 +200,7 @@ class Fire2MqttService : Service() {
             // Volume
             launch {
                 VolumeWatcher(this@Fire2MqttService).volumeFlow()
-                    .catch { Log.e(TAG, "Volume error: ${it.message}") }
+                    .catch { logger.e(it) { "Volume error: ${it.message}" } }
                     .collect { vol ->
                         client.publish(
                             TopicSchema.stateVolume(prefix, deviceId),

@@ -6,9 +6,26 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant import loader
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+DEVICE_ID = "test_device"
+PREFIX = "fire2mqtt"
+
+TOPIC_STATUS = f"{PREFIX}/{DEVICE_ID}/status"
+TOPIC_PLAYBACK = f"{PREFIX}/{DEVICE_ID}/state/playback"
+TOPIC_APP = f"{PREFIX}/{DEVICE_ID}/state/app"
+TOPIC_SCREEN = f"{PREFIX}/{DEVICE_ID}/state/screen"
+TOPIC_VOLUME = f"{PREFIX}/{DEVICE_ID}/state/volume"
+TOPIC_DEVICE = f"{PREFIX}/{DEVICE_ID}/state/device"
+TOPIC_CMD_MEDIA = f"{PREFIX}/{DEVICE_ID}/cmd/media"
+TOPIC_CMD_LAUNCH = f"{PREFIX}/{DEVICE_ID}/cmd/launch"
+TOPIC_CMD_KEY = f"{PREFIX}/{DEVICE_ID}/cmd/key"
+TOPIC_CMD_VOLUME = f"{PREFIX}/{DEVICE_ID}/cmd/volume"
+TOPIC_CMD_POWER = f"{PREFIX}/{DEVICE_ID}/cmd/power"
 
 
 @pytest.fixture
@@ -56,3 +73,24 @@ def mock_mqtt_publish():
 
     with patch("homeassistant.components.mqtt.async_publish", mock):
         yield mock
+
+
+@pytest.fixture
+def config_entry(hass: HomeAssistant) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain="fire2mqtt",
+        data={"device_id": DEVICE_ID, "topic_prefix": PREFIX},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+@pytest.fixture
+async def setup_integration(hass: HomeAssistant, config_entry: MockConfigEntry, mock_mqtt_subscribe, mock_mqtt_publish):
+    hass.data.pop(loader.DATA_CUSTOM_COMPONENTS, None)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    yield config_entry
+    await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()

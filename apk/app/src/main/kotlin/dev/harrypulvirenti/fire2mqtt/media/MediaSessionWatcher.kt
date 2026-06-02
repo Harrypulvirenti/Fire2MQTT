@@ -6,13 +6,13 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
-import android.util.Log
+import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.mqtt.PlaybackPayload
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-private const val TAG = "Fire2MQTT/MediaSession"
+private val logger = Logger.withTag("Fire2MQTT/MediaSession")
 
 class MediaSessionWatcher(
     private val context: Context,
@@ -56,7 +56,7 @@ class MediaSessionWatcher(
             manager.addOnActiveSessionsChangedListener(sessionListener, notificationListenerComponent)
             attachCallbacks(manager.getActiveSessions(notificationListenerComponent))
         } catch (e: SecurityException) {
-            Log.e(TAG, "Missing NotificationListener permission: ${e.message}")
+            logger.e(e) { "Missing NotificationListener permission: ${e.message}" }
         }
 
         awaitClose {

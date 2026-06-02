@@ -3,11 +3,11 @@ package dev.harrypulvirenti.fire2mqtt.commands
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.media.AudioManager
-import android.util.Log
-import android.view.accessibility.AccessibilityEvent
 import android.view.KeyEvent
+import android.view.accessibility.AccessibilityEvent
+import co.touchlab.kermit.Logger
 
-private const val TAG = "Fire2MQTT/Accessibility"
+private val logger = Logger.withTag("Fire2MQTT/Accessibility")
 
 /**
  * AccessibilityService used for key event injection (HOME, BACK, DPAD, etc.).
@@ -22,7 +22,7 @@ private const val TAG = "Fire2MQTT/Accessibility"
 class Fire2MqttAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
-        Log.i(TAG, "Accessibility service connected")
+        logger.i { "Accessibility service connected" }
         instance = this
     }
 
@@ -58,7 +58,7 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
                 it.dispatchKey(keyCode)
                 true
             } ?: run {
-                Log.w(TAG, "AccessibilityService not connected — key $keyCode dropped")
+                logger.w { "AccessibilityService not connected — key $keyCode dropped" }
                 false
             }
         }

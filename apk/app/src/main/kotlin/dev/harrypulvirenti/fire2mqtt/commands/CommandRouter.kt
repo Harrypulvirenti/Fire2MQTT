@@ -1,13 +1,13 @@
 package dev.harrypulvirenti.fire2mqtt.commands
 
 import android.content.Context
-import android.util.Log
 import android.view.KeyEvent
+import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import dev.harrypulvirenti.fire2mqtt.mqtt.VolumeCommandPayload
 import kotlinx.serialization.json.Json
 
-private const val TAG = "Fire2MQTT/CommandRouter"
+private val logger = Logger.withTag("Fire2MQTT/CommandRouter")
 
 class CommandRouter(
     context: Context,
@@ -49,7 +49,7 @@ class CommandRouter(
                 if (keyCode != null) {
                     Fire2MqttAccessibilityService.sendKey(keyCode)
                 } else {
-                    Log.w(TAG, "Unknown key: $payload")
+                    logger.w { "Unknown key: $payload" }
                 }
             }
             TopicSchema.cmdVolume(prefix, deviceId) -> {
@@ -62,7 +62,7 @@ class CommandRouter(
                         "mute" -> volumeController.mute()
                         "unmute" -> volumeController.unmute()
                     }
-                }.onFailure { Log.e(TAG, "Volume command parse error: ${it.message}") }
+                }.onFailure { logger.e(it) { "Volume command parse error: ${it.message}" } }
             }
             TopicSchema.cmdPower(prefix, deviceId) -> {
                 when (payload.trim().lowercase()) {
@@ -81,7 +81,7 @@ class CommandRouter(
                     else -> null
                 }
                 keyCode?.let { Fire2MqttAccessibilityService.sendKey(it) }
-                    ?: Log.w(TAG, "Unknown media command: $payload")
+                    ?: logger.w { "Unknown media command: $payload" }
             }
         }
     }
