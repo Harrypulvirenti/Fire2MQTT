@@ -19,6 +19,7 @@ from .const import (
     DOMAIN,
     TOPIC_CMD_LAUNCH,
     TOPIC_CMD_MEDIA,
+    TOPIC_CMD_POWER,
     TOPIC_CMD_VOLUME,
 )
 from .coordinator import Fire2MqttCoordinator
@@ -77,9 +78,6 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     @property
     def state(self) -> MediaPlayerState:
-        if not self.coordinator.data.online:
-            return MediaPlayerState.OFF
-
         playback = self.coordinator.data.playback
         current_package = self.coordinator.data.app.get("package", "")
         rules = self._get_rules(current_package)
@@ -168,10 +166,4 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         _LOGGER.warning("Fire2MQTT: unknown source '%s'", source)
 
     async def async_turn_off(self) -> None:
-        await self.coordinator.async_send_command(
-            "{prefix}/{device_id}/cmd/power".format(
-                prefix=self.coordinator._prefix,
-                device_id=self.coordinator._device_id,
-            ),
-            "sleep",
-        )
+        await self.coordinator.async_send_command(TOPIC_CMD_POWER, "sleep")
