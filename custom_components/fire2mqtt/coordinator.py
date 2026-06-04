@@ -89,17 +89,8 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         await self._bus.teardown()
 
     async def async_send_command(self, cmd_template: str, payload: Any) -> None:
-        """Publish a command to the Fire Stick.
-
-        *cmd_template* may be either a format template (containing
-        ``{prefix}`` / ``{device_id}`` placeholders) **or** an already-
-        formatted topic string.  In both cases the payload is published
-        directly to *cmd_template* after optional JSON encoding — the bus
-        is bypassed intentionally so that callers that pass a pre-formatted
-        topic (e.g. ``media_player.async_turn_off``) continue to work.
-        """
-        raw = payload if isinstance(payload, str) else json.dumps(payload)
-        await mqtt.async_publish(self.hass, cmd_template, raw)
+        """Publish a command to the Fire Stick via the bus (formats the topic)."""
+        await self._bus.publish(cmd_template, payload)
 
     async def async_launch_app(self, package_or_key: str) -> None:
         await self._bus.publish(TOPIC_CMD_LAUNCH, package_or_key)

@@ -176,4 +176,4 @@ async def test_async_teardown_calls_all_unsubs(hass, coordinator):
 
     for unsub in unsubs:
         unsub.assert_called_once()
-    assert coordinator._unsubscribe == []
+    assert coordinator._bus._unsubscribe == []
