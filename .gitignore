@@ -35,5 +35,11 @@ config/
 # macOS
 .DS_Store
 
-# graphify (generated knowledge graph; contains machine-specific paths)
-graphify-out/
+# graphify knowledge graph
+# Track the portable outputs (graph.json, graph.html, GRAPH_REPORT.md, cost.json,
+# .graphify_labels.json) so the graph is available to everyone. Ignore the
+# machine-specific runtime state (absolute paths, mtimes) and the regenerable cache.
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/manifest.json
+graphify-out/cache/

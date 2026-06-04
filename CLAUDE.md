@@ -70,7 +70,7 @@ The contract is defined in **three places that must stay in sync**:
 
 ## Using the knowledge graph (graphify)
 
-A prebuilt graph of this repo lives in `graphify-out/` (gitignored). For "how does X work / what connects to Y / trace the flow through Z" questions, query it instead of grepping cold:
+**Check the prebuilt graph first.** A knowledge graph of this repo is committed in `graphify-out/` — start with `graphify-out/GRAPH_REPORT.md` (hub nodes, cross-module connections, surprising links) and open `graphify-out/graph.html` in a browser for the interactive view. For "how does X work / what connects to Y / trace the flow through Z" questions, query the graph instead of grepping cold:
 
 ```bash
 graphify query "how does a playback MQTT message become an HA media_player state"
