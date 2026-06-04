@@ -34,3 +34,6 @@ config/
 
 # macOS
 .DS_Store
+
+# graphify (generated knowledge graph; contains machine-specific paths)
+graphify-out/

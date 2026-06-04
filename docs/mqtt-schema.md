@@ -58,6 +58,17 @@ Published on every MediaSession callback. `media_session_state` intentionally mi
 }
 ```
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `media_session_state` | int | Android PlaybackState (see table below) |
+| `app` | string | Package name of the active media session owner |
+| `title` | string\|null | Track / episode title, or null when nothing is playing |
+| `artist` | string\|null | Artist name, or null |
+| `album` | string\|null | Album name, or null |
+| `duration_ms` | int\|null | Total duration in milliseconds, or null |
+| `position_ms` | int\|null | Current playback position in milliseconds, or null |
+| `ts` | int | Unix epoch milliseconds when the APK emitted this payload |
+
 | `media_session_state` | Meaning |
 |-----------------------|---------|
 | `0` | None / unknown |
