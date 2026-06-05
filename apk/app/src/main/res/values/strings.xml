@@ -7,6 +7,8 @@
     <string name="pref_broker_password">Password (optional)</string>
     <string name="pref_device_id">Device ID</string>
     <string name="pref_topic_prefix">Topic Prefix</string>
+    <string name="btn_test_connection">Test Connection</string>
+    <string name="btn_test_connection_testing">Testing…</string>
     <string name="btn_start_service">Start Service</string>
     <string name="btn_grant_usage">Grant Usage Access</string>
     <string name="btn_grant_notification">Grant Notification Access</string>

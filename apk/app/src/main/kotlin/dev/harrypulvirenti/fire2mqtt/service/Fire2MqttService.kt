@@ -71,7 +71,7 @@ class Fire2MqttService : Service() {
         val prefix = prefs.getString("topic_prefix", "fire2mqtt") ?: "fire2mqtt"
         val deviceId = prefs.getString("device_id", "fire_tv") ?: "fire_tv"
         val host = prefs.getString("broker_host", "") ?: ""
-        val port = prefs.getInt("broker_port", 1883)
+        val port = prefs.getString("broker_port", "1883")?.toIntOrNull() ?: 1883
         val username = prefs.getString("broker_username", null)
         val password = prefs.getString("broker_password", null)
 

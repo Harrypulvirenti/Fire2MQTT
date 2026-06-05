@@ -8,9 +8,11 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.mqtt.PlaybackPayload
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 
 private val logger = Logger.withTag("Fire2MQTT/MediaSession")
 
@@ -63,7 +65,7 @@ class MediaSessionWatcher(
             detachAll()
             manager.removeOnActiveSessionsChangedListener(sessionListener)
         }
-    }
+    }.flowOn(Dispatchers.Main)
 
     private fun buildPayload(
         controller: MediaController,

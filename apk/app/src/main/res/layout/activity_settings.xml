@@ -6,6 +6,13 @@
     android:padding="16dp">
 
     <Button
+        android:id="@+id/btn_test_connection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_test_connection"
+        style="@style/Widget.AppCompat.Button.Borderless" />
+
+    <Button
         android:id="@+id/btn_start_service"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
