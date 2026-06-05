@@ -11,33 +11,58 @@
         android:padding="24dp">
 
         <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:text="@string/perm_title" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:textSize="16sp"
+            android:fontFamily="monospace"
+            android:text="" />
+
+        <TextView
             android:id="@+id/tv_instructions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:textSize="16sp"
-            android:text="Fire2MQTT needs three special permissions to publish device state and route commands. Grant each below, then tap Done." />
+            android:layout_marginBottom="12dp"
+            android:textSize="15sp"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/tv_command"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:padding="12dp"
+            android:background="#11000000"
+            android:fontFamily="monospace"
+            android:textSize="14sp"
+            android:textIsSelectable="true"
+            android:visibility="gone"
+            android:text="" />
 
         <Button
-            android:id="@+id/btn_usage_access"
+            android:id="@+id/btn_enable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="@string/btn_grant_usage" />
+            android:visibility="gone"
+            android:text="@string/perm_btn_enable" />
 
         <Button
-            android:id="@+id/btn_notification_access"
+            android:id="@+id/btn_refresh"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="@string/btn_grant_notification" />
-
-        <Button
-            android:id="@+id/btn_accessibility_access"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:text="@string/btn_grant_accessibility" />
+            android:text="@string/perm_btn_refresh" />
 
         <Button
             android:id="@+id/btn_done"

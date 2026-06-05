@@ -1,53 +1,41 @@
 package dev.harrypulvirenti.fire2mqtt.system
 
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import co.touchlab.kermit.Logger
-import kotlinx.coroutines.delay
+import dev.harrypulvirenti.fire2mqtt.commands.Fire2MqttAccessibilityService
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 private val logger = Logger.withTag("Fire2MQTT/ForegroundApp")
-private const val POLL_INTERVAL_MS = 1_000L
 
 data class ForegroundAppEvent(val packageName: String, val appName: String)
 
-class ForegroundAppWatcher(private val context: Context) {
+/**
+ * Reports the foreground app. Detection is driven by [Fire2MqttAccessibilityService],
+ * which emits the package of each window that comes to the foreground
+ * (TYPE_WINDOW_STATE_CHANGED). This replaces UsageStatsManager polling — the
+ * PACKAGE_USAGE_STATS permission cannot be granted to a sideloaded app on Fire OS,
+ * whereas the accessibility service is already required for key injection and can be
+ * enabled via WRITE_SECURE_SETTINGS.
+ */
+class ForegroundAppWatcher(
+    private val context: Context,
+    private val source: Flow<String> = Fire2MqttAccessibilityService.foregroundPackages,
+) {
 
-    private val usageStats = context.getSystemService(UsageStatsManager::class.java)
     private val pm = context.packageManager
 
-    fun foregroundAppFlow(): Flow<ForegroundAppEvent> = flow {
-        var lastPackage = ""
-        while (true) {
-            delay(POLL_INTERVAL_MS)
-            val current = getCurrentForegroundPackage()
-            if (current != null && current != lastPackage) {
-                lastPackage = current
-                val name = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(current, 0)).toString() }
-                    .getOrDefault(current)
-                emit(ForegroundAppEvent(current, name))
-            }
-        }
-    }
-
-    private fun getCurrentForegroundPackage(): String? {
-        return try {
-            val now = System.currentTimeMillis()
-            val events = usageStats.queryEvents(now - 5_000L, now)
-            val event = UsageEvents.Event()
-            var lastForeground: String? = null
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                    lastForeground = event.packageName
+    fun foregroundAppFlow(): Flow<ForegroundAppEvent> =
+        source
+            .distinctUntilChanged()
+            .map { pkg ->
+                val name = runCatching {
+                    pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                }.getOrElse {
+                    logger.d { "No label for $pkg — falling back to package name" }
+                    pkg
                 }
+                ForegroundAppEvent(pkg, name)
             }
-            lastForeground
-        } catch (e: Exception) {
-            logger.e(e) { "Failed to query usage events: ${e.message}" }
-            null
-        }
-    }
 }

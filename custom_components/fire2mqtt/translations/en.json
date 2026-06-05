@@ -9,12 +9,34 @@
           "device_id": "Device ID (e.g. living_room_fire_tv)",
           "topic_prefix": "MQTT topic prefix"
         }
+      },
+      "provision": {
+        "title": "Install the app on your Fire TV?",
+        "description": "Optionally let Home Assistant install the Fire2MQTT APK over ADB and grant the one permission Fire OS hides from the UI. First enable **ADB Debugging** on the Fire TV (Settings > My Fire TV > Developer Options). You can skip this and sideload the app yourself instead.",
+        "menu_options": {
+          "provision_adb": "Install & set up over ADB",
+          "finish": "Skip — I'll install the app myself"
+        }
+      },
+      "provision_adb": {
+        "title": "Provision over ADB",
+        "description": "Enter your Fire TV's IP address. The first time you connect, accept the authorization dialog that appears on the TV, then submit again.\n\n{detail}",
+        "data": {
+          "fire_tv_ip": "Fire TV IP address"
+        }
       }
     },
     "error": {
       "invalid_device_id": "Device ID must only contain lowercase letters, digits, and underscores.",
       "apk_not_reachable": "The APK did not respond. You can proceed anyway and configure the APK later.",
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "adb_unreachable": "Could not reach the Fire TV over ADB. Enable ADB Debugging in Developer Options and check the IP address.",
+      "adb_auth": "The Fire TV rejected the connection. Accept the authorization dialog on the TV and try again.",
+      "adb_unavailable": "The ADB client could not be loaded. Restart Home Assistant after the integration finishes installing its dependency.",
+      "install_failed": "The APK failed to install. {detail}",
+      "grant_failed": "WRITE_SECURE_SETTINGS could not be granted on this Fire OS build. You'll need to enable permissions manually.",
+      "download_failed": "Could not download the APK from GitHub releases. {detail}",
+      "no_apk_asset": "The latest GitHub release has no APK attached."
     },
     "abort": {
       "mqtt_not_configured": "Please set up the MQTT integration first.",

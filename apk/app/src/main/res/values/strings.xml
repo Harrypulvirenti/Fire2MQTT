@@ -10,8 +10,15 @@
     <string name="btn_test_connection">Test Connection</string>
     <string name="btn_test_connection_testing">Testing…</string>
     <string name="btn_start_service">Start Service</string>
-    <string name="btn_grant_usage">Grant Usage Access</string>
-    <string name="btn_grant_notification">Grant Notification Access</string>
-    <string name="btn_grant_accessibility">Grant Accessibility Access</string>
     <string name="btn_done">I\'m Done</string>
+
+    <!-- Permissions screen -->
+    <string name="perm_title">Permissions</string>
+    <string name="perm_btn_enable">Enable permissions</string>
+    <string name="perm_btn_refresh">Refresh status</string>
+    <string name="perm_enabled_ok">Permissions enabled</string>
+    <string name="perm_enabled_fail">Could not enable — check that WRITE_SECURE_SETTINGS is granted</string>
+    <string name="perm_have_wss">Fire2MQTT can enable its permissions itself. Tap the button below.</string>
+    <string name="perm_need_wss">Fire OS hides these toggles for sideloaded apps. Grant one permission via ADB, then return here — the app enables the rest automatically.\n\n1. On the Fire TV: Settings &gt; My Fire TV &gt; Developer Options &gt; enable ADB Debugging.\n2. From a computer on the same network, run:</string>
+    <string name="perm_adb_command">adb connect %1$s:5555\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS</string>
 </resources>

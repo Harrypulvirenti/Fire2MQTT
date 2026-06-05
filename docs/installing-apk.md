@@ -4,9 +4,23 @@
 
 - Fire TV Stick with Fire OS 7+ (Android 7.1+)
 - ADB enabled on the Fire Stick (Settings → My Fire TV → Developer Options → ADB Debugging ON)
-- ADB installed on your computer
+- ADB installed on your computer (only for the manual path below)
 
-## Steps
+## The easy path: let Home Assistant do it
+
+If you've installed the **Fire2MQTT Home Assistant integration**, it can install the APK and grant the
+one permission Fire OS hides — over ADB — during setup:
+
+1. On the Fire TV: **Settings → My Fire TV → Developer Options → ADB Debugging → ON**.
+2. In Home Assistant, add the **Fire2MQTT** integration. After the device/MQTT step, choose
+   **Install & set up over ADB** and enter the Fire TV's IP.
+3. The **first** time, an authorization dialog appears on the TV — **accept it**, then submit the form
+   again. Home Assistant installs the APK, grants `WRITE_SECURE_SETTINGS`, and launches the app, which
+   then enables its own accessibility + notification-listener access.
+
+That's it — no manual ADB commands, no settings hunting. The rest of this doc is the manual path.
+
+## Manual path
 
 ### 1. Build the APK
 
@@ -39,25 +53,30 @@ In the Fire2MQTT settings screen:
 - **Device ID** — slug that appears in MQTT topics (e.g. `living_room_fire_tv`)
 - **Topic Prefix** — default `fire2mqtt`
 
-### 5. Grant required permissions
+### 5. Grant permissions (one ADB command)
 
-The app will open the **Permissions** screen automatically. You must grant three permissions:
+Fire OS does **not** let a sideloaded app enable Usage Access / Notification Listener / Accessibility from
+any in-app UI — the settings screens don't open and the app isn't listed. Instead, Fire2MQTT enables its
+own permissions once it has **`WRITE_SECURE_SETTINGS`**, which you grant with a single ADB command:
 
-#### a) Usage Access (required for foreground app detection)
-Tap **Grant Usage Access** → find **Fire2MQTT** → enable the toggle.
+```bash
+adb connect <fire-tv-ip>:5555
+adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS
+```
 
-> Without this, the `state/app` topic will not publish.
+The app's **Permissions** screen shows this exact command (with your device's IP). After you run it, return
+to the app and tap **Enable permissions** (or just restart the app) — it writes the secure settings to turn
+on:
 
-#### b) Notification Listener Access (required for MediaSession)
-Tap **Grant Notification Access** → find **Fire2MQTT** → enable.
+- **Accessibility service** — key injection (`cmd/key`, `cmd/media`) **and** foreground-app detection
+  (`state/app`). App launching (`cmd/launch`) works without it.
+- **Notification-listener access** — MediaSession metadata (`state/playback`).
 
-> Without this, the `state/playback` topic will not publish (no media metadata).
-
-#### c) Accessibility Service (required for key injection — HOME, BACK, DPAD, media keys)
-Tap **Grant Accessibility Access** → find **Fire2MQTT** → enable.
-
-> Without this, `cmd/key` and `cmd/media` commands will be silently dropped.
-> App launching (`cmd/launch`) works without this permission.
+> Foreground-app detection runs on the accessibility service now; there is no separate Usage Access
+> permission anymore.
+>
+> A few Fire OS builds have `WRITE_SECURE_SETTINGS` removed by Amazon. If the grant doesn't stick, the app
+> can't self-enable and these features stay off.
 
 ### 6. Start the service
 

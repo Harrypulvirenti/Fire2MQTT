@@ -14,6 +14,7 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
 import dev.harrypulvirenti.fire2mqtt.service.Fire2MqttService
+import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,7 +53,12 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        if (!hasUsageStatsPermission()) {
+        // Self-enable accessibility + notification-listener access if WRITE_SECURE_SETTINGS is
+        // held. If anything is still missing, send the user to the permissions screen.
+        SecureSettingsManager.ensureAllEnabled(this)
+        if (!SecureSettingsManager.isAccessibilityEnabled(this) ||
+            !SecureSettingsManager.isNotificationListenerEnabled(this)
+        ) {
             startActivity(Intent(this, PermissionsActivity::class.java))
         }
     }
@@ -96,16 +102,6 @@ class SettingsActivity : AppCompatActivity() {
             val cause = e.cause?.message ?: e.message ?: "unknown error"
             "Failed: $cause"
         }
-    }
-
-    private fun hasUsageStatsPermission(): Boolean {
-        val appOps = getSystemService(android.app.AppOpsManager::class.java)
-        val mode = appOps.checkOpNoThrow(
-            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            packageName,
-        )
-        return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {
