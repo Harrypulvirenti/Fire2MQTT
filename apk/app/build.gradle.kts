@@ -9,11 +9,13 @@ kotlin {
 
 android {
     namespace = "dev.harrypulvirenti.fire2mqtt"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.harrypulvirenti.fire2mqtt"
         minSdk = 25         // Fire OS 7 (Android 7.1)
+        // compileSdk is ahead of targetSdk on purpose: core/material 1.19/1.14 need API 37
+        // to compile, but we don't opt into API-37 runtime behavior changes on Fire OS yet.
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -69,5 +71,5 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.13.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.0")
 }

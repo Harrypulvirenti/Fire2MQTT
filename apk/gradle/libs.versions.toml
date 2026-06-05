@@ -1,15 +1,15 @@
 [versions]
-agp = "9.2.0"
-kotlin = "2.3.21"
+agp = "9.2.1"
+kotlin = "2.4.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.11.0"
-androidxCore = "1.18.0"
+androidxCore = "1.19.0"
 androidxAppcompat = "1.7.1"
 androidxPreference = "1.2.1"
 androidxLifecycle = "2.10.0"
-material = "1.13.0"
-junitJupiter = "5.13.0"
-mockk = "1.14.2"
+material = "1.14.0"
+junitJupiter = "6.1.0"
+mockk = "1.14.11"
 kermit = "2.1.0"
 
 [plugins]
