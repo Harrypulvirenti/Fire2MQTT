@@ -23,8 +23,10 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    ADB_PORT,
     CONF_DEVICE_ID,
     CONF_ENABLED_APPS,
+    CONF_FIRE_TV_IP,
     CONF_IDLE_TIMEOUT,
     CONF_TOPIC_PREFIX,
     DEFAULT_IDLE_TIMEOUT,
@@ -45,6 +47,9 @@ def _slug(name: str) -> str:
 
 class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    def __init__(self) -> None:
+        self._entry_data: dict | None = None
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -72,13 +77,14 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                         errors = {}
 
                 if not errors:
-                    return self.async_create_entry(
-                        title=user_input.get("device_name", device_id),
-                        data={
-                            CONF_DEVICE_ID: device_id,
-                            CONF_TOPIC_PREFIX: user_input.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX),
-                        },
-                    )
+                    self._entry_data = {
+                        "title": user_input.get("device_name", device_id),
+                        CONF_DEVICE_ID: device_id,
+                        CONF_TOPIC_PREFIX: user_input.get(
+                            CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX
+                        ),
+                    }
+                    return await self.async_step_provision()
 
         schema = vol.Schema({
             vol.Required("device_name", default="Living Room Fire TV"): TextSelector(
@@ -123,6 +129,64 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             return False
         finally:
             unsub()
+
+    async def async_step_provision(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Offer optional one-time ADB provisioning of the Fire TV, or finish."""
+        return self.async_show_menu(
+            step_id="provision",
+            menu_options=["provision_adb", "finish"],
+        )
+
+    async def async_step_finish(self, user_input: dict | None = None) -> ConfigFlowResult:
+        return self._create_entry()
+
+    async def async_step_provision_adb(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Install the APK + grant WRITE_SECURE_SETTINGS over ADB, then create the entry."""
+        errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+
+        if user_input is not None:
+            # Imported here so the adb_shell dependency only loads when provisioning is used.
+            from .adb_provision import ProvisionError, async_provision
+
+            try:
+                result = await async_provision(
+                    self.hass, user_input[CONF_FIRE_TV_IP], ADB_PORT
+                )
+            except ProvisionError as err:
+                errors["base"] = err.reason
+                description_placeholders["detail"] = str(err)
+            else:
+                summary = "Installed" if result.installed else "Already installed"
+                return self._create_entry(
+                    f"{summary}; WRITE_SECURE_SETTINGS granted; app launched to self-enable "
+                    "accessibility + notification access."
+                )
+
+        return self.async_show_form(
+            step_id="provision_adb",
+            data_schema=vol.Schema({
+                vol.Required(CONF_FIRE_TV_IP): TextSelector(
+                    TextSelectorConfig(type="text")
+                ),
+            }),
+            errors=errors,
+            description_placeholders=description_placeholders,
+        )
+
+    def _create_entry(self, provision_note: str | None = None) -> ConfigFlowResult:
+        assert self._entry_data is not None
+        if provision_note:
+            _LOGGER.info("Fire2MQTT provisioning: %s", provision_note)
+        return self.async_create_entry(
+            title=self._entry_data["title"],
+            data={
+                CONF_DEVICE_ID: self._entry_data[CONF_DEVICE_ID],
+                CONF_TOPIC_PREFIX: self._entry_data[CONF_TOPIC_PREFIX],
+            },
+        )
 
     @staticmethod
     @callback

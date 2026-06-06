@@ -1,0 +1,173 @@
+"""Optional ADB-based provisioning of the Fire2MQTT APK.
+
+One-time setup that a user would otherwise do by hand: install the APK, grant the single
+``WRITE_SECURE_SETTINGS`` permission, and launch the app so it self-enables its accessibility
+and notification-listener access. Only this one ADB grant is needed — on modern Fire OS the app
+writes the remaining secure settings itself (see the APK's ``SecureSettingsManager``).
+
+Two things cannot be automated (Fire OS / ADB security):
+  * the user must enable **ADB Debugging** once in Developer Options, and
+  * accept the on-TV authorization dialog the first time the integration connects.
+
+This module is intentionally self-contained and only imported when the user runs the provisioning
+step, so a normal MQTT-only install never loads ``adb_shell``.
+"""
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass, field
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .const import (
+    ADB_KEY_FILENAME,
+    ADB_PORT,
+    FIRE2MQTT_LAUNCH_COMPONENT,
+    FIRE2MQTT_PACKAGE,
+    GITHUB_LATEST_RELEASE_URL,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+_REMOTE_APK_PATH = "/data/local/tmp/fire2mqtt.apk"
+_WRITE_SECURE_SETTINGS = "android.permission.WRITE_SECURE_SETTINGS"
+
+
+class ProvisionError(Exception):
+    """Raised when provisioning cannot complete. ``reason`` maps to a config-flow error key."""
+
+    def __init__(self, reason: str, detail: str = "") -> None:
+        super().__init__(detail or reason)
+        self.reason = reason
+
+
+@dataclass
+class ProvisionResult:
+    installed: bool = False
+    write_secure_settings: bool = False
+    launched: bool = False
+    notes: list[str] = field(default_factory=list)
+
+
+async def async_provision(hass: HomeAssistant, host: str, port: int = ADB_PORT) -> ProvisionResult:
+    """Install + grant + launch over ADB. Raises :class:`ProvisionError` on failure."""
+    # Imported lazily so the dependency is only required when provisioning is actually used.
+    try:
+        from adb_shell.adb_device_async import AdbDeviceTcpAsync
+        from adb_shell.auth.keygen import keygen
+        from adb_shell.auth.sign_pythonrsa import PythonRSASigner
+        from adb_shell.exceptions import DeviceAuthError, TcpTimeoutException
+    except ImportError as err:  # pragma: no cover - dependency always present at runtime
+        raise ProvisionError("adb_unavailable", str(err)) from err
+
+    signer = await _async_load_signer(hass, keygen, PythonRSASigner)
+
+    device = AdbDeviceTcpAsync(host, port, default_transport_timeout_s=9.0)
+    try:
+        await device.connect(rsa_keys=[signer], auth_timeout_s=12.0)
+    except DeviceAuthError as err:
+        raise ProvisionError("adb_auth", str(err)) from err
+    except (TcpTimeoutException, OSError) as err:
+        # Either ADB debugging is off, the host is wrong, or the user hasn't accepted the dialog.
+        raise ProvisionError("adb_unreachable", str(err)) from err
+
+    result = ProvisionResult()
+    try:
+        if await _async_is_installed(device):
+            result.notes.append("APK already installed")
+        else:
+            apk = await _async_download_apk(hass)
+            await device.push(apk, _REMOTE_APK_PATH)
+            install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
+            if "Success" not in install_out:
+                raise ProvisionError("install_failed", install_out.strip())
+            await device.shell(f"rm -f {_REMOTE_APK_PATH}")
+            result.installed = True
+
+        # The one unavoidable grant. The app does the rest on launch.
+        await device.shell(
+            f"pm grant {FIRE2MQTT_PACKAGE} {_WRITE_SECURE_SETTINGS}"
+        )
+        result.write_secure_settings = await _async_has_write_secure_settings(device)
+        if not result.write_secure_settings:
+            # Some Fire OS builds removed WRITE_SECURE_SETTINGS entirely.
+            raise ProvisionError("grant_failed", "WRITE_SECURE_SETTINGS not held after grant")
+
+        # Launch so SecureSettingsManager.ensureAllEnabled() runs and self-grants the rest.
+        await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
+        result.launched = True
+        return result
+    finally:
+        await device.close()
+
+
+async def _async_load_signer(hass: HomeAssistant, keygen, signer_cls):
+    """Load (or generate, once) a persistent ADB RSA key so the on-TV dialog appears only once."""
+    key_path = hass.config.path(ADB_KEY_FILENAME)
+
+    def _ensure_key() -> object:
+        if not os.path.isfile(key_path):
+            keygen(key_path)
+        return signer_cls.FromRSAKeyPath(key_path)
+
+    return await hass.async_add_executor_job(_ensure_key)
+
+
+async def _async_is_installed(device) -> bool:
+    out = await device.shell(f"pm list packages {FIRE2MQTT_PACKAGE}")
+    return f"package:{FIRE2MQTT_PACKAGE}" in out
+
+
+async def _async_has_write_secure_settings(device) -> bool:
+    out = await device.shell(
+        f"dumpsys package {FIRE2MQTT_PACKAGE} | grep {_WRITE_SECURE_SETTINGS}"
+    )
+    return "granted=true" in out
+
+
+async def _async_download_apk(hass: HomeAssistant) -> str:
+    """Resolve the latest release's .apk asset, download it to a temp file, return the path."""
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(
+            GITHUB_LATEST_RELEASE_URL, headers={"Accept": "application/vnd.github+json"}
+        ) as resp:
+            if resp.status != 200:
+                raise ProvisionError("download_failed", f"release lookup HTTP {resp.status}")
+            release = await resp.json()
+    except ProvisionError:
+        raise
+    except Exception as err:  # noqa: BLE001 - network errors surface as one reason
+        raise ProvisionError("download_failed", str(err)) from err
+
+    asset_url = next(
+        (
+            asset["browser_download_url"]
+            for asset in release.get("assets", [])
+            if asset.get("name", "").endswith(".apk")
+        ),
+        None,
+    )
+    if not asset_url:
+        raise ProvisionError("no_apk_asset", "latest release has no .apk asset")
+
+    dest = hass.config.path("fire2mqtt_download.apk")
+
+    def _write(data: bytes) -> None:
+        with open(dest, "wb") as fh:
+            fh.write(data)
+
+    try:
+        async with session.get(asset_url) as resp:
+            if resp.status != 200:
+                raise ProvisionError("download_failed", f"APK download HTTP {resp.status}")
+            data = await resp.read()
+    except ProvisionError:
+        raise
+    except Exception as err:  # noqa: BLE001
+        raise ProvisionError("download_failed", str(err)) from err
+
+    await hass.async_add_executor_job(_write, data)
+    return dest

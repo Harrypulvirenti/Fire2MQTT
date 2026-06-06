@@ -5,8 +5,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <!-- Required for UsageStatsManager (foreground app detection) — user must grant in Settings -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+    <!-- Lets the app enable its own accessibility + notification-listener access on Fire OS,
+         where those toggles are not exposed in the UI for sideloaded apps. Granted once via
+         `adb shell pm grant <pkg> android.permission.WRITE_SECURE_SETTINGS` (see SecureSettingsManager). -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
 

@@ -83,12 +83,24 @@ async def test_invalid_device_id_shows_error(hass: HomeAssistant):
     assert result["errors"].get(CONF_DEVICE_ID) == "invalid_device_id"
 
 
-async def test_valid_submission_creates_entry(hass: HomeAssistant):
+async def test_valid_submission_offers_provision_menu(hass: HomeAssistant):
     with _patch_mqtt_client(), _patch_apk_check(online=True):
         await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             list(hass.config_entries.flow.async_progress())[0]["flow_id"],
             user_input=VALID_INPUT,
+        )
+    assert result["type"] == "menu"
+    assert result["step_id"] == "provision"
+
+
+async def test_skip_provision_creates_entry(hass: HomeAssistant):
+    with _patch_mqtt_client(), _patch_apk_check(online=True):
+        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+        await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
+        result = await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"next_step_id": "finish"}
         )
     assert result["type"] == "create_entry"
     assert result["data"][CONF_DEVICE_ID] == "living_room"
@@ -116,13 +128,13 @@ async def test_force_continue_bypasses_apk_error(hass: HomeAssistant):
     assert result["type"] == "form"
     assert result["errors"].get("base") == "apk_not_reachable"
 
-    # Step 2: re-submit with _force_continue=True → entry created despite offline APK
+    # Step 2: re-submit with _force_continue=True → provisioning menu (offline APK bypassed)
     with _patch_mqtt_client(), _patch_apk_check(online=False):
         result = await hass.config_entries.flow.async_configure(
             flow_id, user_input={**VALID_INPUT, "_force_continue": True}
         )
-    assert result["type"] == "create_entry"
-    assert result["data"][CONF_DEVICE_ID] == "living_room"
+    assert result["type"] == "menu"
+    assert result["step_id"] == "provision"
 
 
 async def test_duplicate_device_id_aborts(hass: HomeAssistant):
@@ -141,6 +153,53 @@ async def test_duplicate_device_id_aborts(hass: HomeAssistant):
         )
     assert result["type"] == "abort"
     assert result["reason"] == "already_configured"
+
+
+# ── ADB provisioning step ─────────────────────────────────────────────────────
+
+async def _advance_to_provision_form(hass: HomeAssistant) -> str:
+    """Drive the flow through user → provision menu → provision_adb form; return flow_id."""
+    with _patch_mqtt_client(), _patch_apk_check(online=True):
+        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+        await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
+        result = await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"next_step_id": "provision_adb"}
+        )
+    assert result["type"] == "form"
+    assert result["step_id"] == "provision_adb"
+    return flow_id
+
+
+async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
+    from custom_components.fire2mqtt.adb_provision import ProvisionResult
+
+    flow_id = await _advance_to_provision_form(hass)
+    with patch(
+        "custom_components.fire2mqtt.adb_provision.async_provision",
+        AsyncMock(return_value=ProvisionResult(installed=True, write_secure_settings=True)),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"fire_tv_ip": "10.0.0.50"}
+        )
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_DEVICE_ID] == "living_room"
+
+
+async def test_provision_adb_error_reshows_form(hass: HomeAssistant):
+    from custom_components.fire2mqtt.adb_provision import ProvisionError
+
+    flow_id = await _advance_to_provision_form(hass)
+    with patch(
+        "custom_components.fire2mqtt.adb_provision.async_provision",
+        AsyncMock(side_effect=ProvisionError("adb_unreachable", "timeout")),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"fire_tv_ip": "10.0.0.50"}
+        )
+    assert result["type"] == "form"
+    assert result["step_id"] == "provision_adb"
+    assert result["errors"].get("base") == "adb_unreachable"
 
 
 # ── options flow ──────────────────────────────────────────────────────────────

@@ -1,20 +1,23 @@
 package dev.harrypulvirenti.fire2mqtt.ui
 
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import dev.harrypulvirenti.fire2mqtt.R
+import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
+import java.net.NetworkInterface
 
 /**
- * Walks the user through granting the two non-automatic permissions:
- *   1. PACKAGE_USAGE_STATS — required for foreground app detection
- *   2. Notification listener access — required for MediaSessionManager
+ * Handles the two special permissions Fire2MQTT needs:
+ *   1. Accessibility service — key injection + foreground-app detection.
+ *   2. Notification-listener access — MediaSessionManager.getActiveSessions().
  *
- * Both must be granted manually in system settings. This activity shows
- * instructions and deep-links the user to the correct settings screens.
+ * Both are enabled programmatically once WRITE_SECURE_SETTINGS is granted. On Fire OS the
+ * standard settings intents do not resolve for sideloaded apps, so this screen never relies on
+ * them: if WRITE_SECURE_SETTINGS is present it self-enables; otherwise it shows the single
+ * one-time ADB bootstrap command the user must run.
  */
 class PermissionsActivity : AppCompatActivity() {
 
@@ -22,29 +25,63 @@ class PermissionsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_permissions)
 
-        val instructions = listOf(
-            "1. Tap 'Grant Usage Access' below → find Fire2MQTT → enable it.",
-            "2. Tap 'Grant Notification Access' below → find Fire2MQTT → enable it.",
-            "3. Tap 'Grant Accessibility Access' below → find Fire2MQTT → enable it.",
-            "4. Return here and tap 'I'm Done'.",
-        ).joinToString("\n\n")
-
-        findViewById<TextView>(R.id.tv_instructions).text = instructions
-
-        findViewById<Button>(R.id.btn_usage_access).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        findViewById<Button>(R.id.btn_enable).setOnClickListener {
+            if (SecureSettingsManager.ensureAllEnabled(this)) {
+                Toast.makeText(this, R.string.perm_enabled_ok, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, R.string.perm_enabled_fail, Toast.LENGTH_LONG).show()
+            }
+            render()
         }
 
-        findViewById<Button>(R.id.btn_notification_access).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        findViewById<Button>(R.id.btn_refresh).setOnClickListener { render() }
+        findViewById<Button>(R.id.btn_done).setOnClickListener { finish() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-check after the user may have run the ADB command and tabbed back.
+        SecureSettingsManager.ensureAllEnabled(this)
+        render()
+    }
+
+    private fun render() {
+        val hasWss = SecureSettingsManager.hasWriteSecureSettings(this)
+        val accessibility = SecureSettingsManager.isAccessibilityEnabled(this)
+        val notifications = SecureSettingsManager.isNotificationListenerEnabled(this)
+
+        findViewById<TextView>(R.id.tv_status).text = buildString {
+            appendLine("${tick(accessibility)} Accessibility (keys + app detection)")
+            append("${tick(notifications)} Notification access (media state)")
         }
 
-        findViewById<Button>(R.id.btn_accessibility_access).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }
+        val enableBtn = findViewById<Button>(R.id.btn_enable)
+        val commandView = findViewById<TextView>(R.id.tv_command)
+        val instructionsView = findViewById<TextView>(R.id.tv_instructions)
 
-        findViewById<Button>(R.id.btn_done).setOnClickListener {
-            finish()
+        if (hasWss) {
+            // We can self-enable — hide the ADB instructions, offer the one-tap button.
+            instructionsView.text = getString(R.string.perm_have_wss)
+            commandView.visibility = TextView.GONE
+            enableBtn.visibility = Button.VISIBLE
+            enableBtn.isEnabled = !(accessibility && notifications)
+        } else {
+            // Need the one-time bootstrap grant. Show the exact command + this device's IP.
+            instructionsView.text = getString(R.string.perm_need_wss)
+            commandView.visibility = TextView.VISIBLE
+            commandView.text = getString(R.string.perm_adb_command, localIp())
+            enableBtn.visibility = Button.GONE
         }
+    }
+
+    private fun tick(granted: Boolean): String = if (granted) "✅" else "❌"
+
+    private fun localIp(): String = try {
+        NetworkInterface.getNetworkInterfaces().toList()
+            .flatMap { it.inetAddresses.toList() }
+            .firstOrNull { !it.isLoopbackAddress && it.hostAddress?.contains(':') == false }
+            ?.hostAddress ?: "<fire-tv-ip>"
+    } catch (_: Exception) {
+        "<fire-tv-ip>"
     }
 }

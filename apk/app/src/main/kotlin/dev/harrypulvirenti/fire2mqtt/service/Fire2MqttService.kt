@@ -23,6 +23,7 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.ScreenPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
+import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
 import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
 import dev.harrypulvirenti.fire2mqtt.ui.SettingsActivity
 import kotlinx.coroutines.*
@@ -45,6 +46,9 @@ class Fire2MqttService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
+        // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
+        // access so the watchers (key injection, media sessions, foreground app) work.
+        SecureSettingsManager.ensureAllEnabled(this)
         val previousPipeline = pipelineJob
         pipelineJob = scope.launch {
             if (previousPipeline?.isActive == true) {
