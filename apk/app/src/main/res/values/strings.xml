@@ -1,24 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Fire2MQTT</string>
-    <string name="pref_broker_host">Broker Host</string>
-    <string name="pref_broker_port">Broker Port</string>
-    <string name="pref_broker_username">Username (optional)</string>
-    <string name="pref_broker_password">Password (optional)</string>
-    <string name="pref_device_id">Device ID</string>
-    <string name="pref_topic_prefix">Topic Prefix</string>
+    <string name="app_name" translatable="false">Fire2MQTT</string>
+    <string name="brand_tagline">Fire TV → Home Assistant bridge</string>
+
+    <!-- Card headers (eyebrows) -->
+    <string name="card_mqtt_broker">MQTT Broker</string>
+    <string name="card_device_identity">Device Identity</string>
+    <string name="card_connection">Connection</string>
+    <string name="card_permissions">Permissions</string>
+
+    <!-- Broker / device fields -->
+    <string name="field_host">Host</string>
+    <string name="field_host_hint">IP or hostname</string>
+    <string name="field_host_placeholder">e.g. 192.168.1.42</string>
+    <string name="field_port">Port</string>
+    <string name="field_port_hint">SELECT to edit</string>
+    <string name="field_port_adjust_hint">◂ ▸ to adjust</string>
+    <string name="field_username">Username</string>
+    <string name="field_password">Password</string>
+    <string name="field_device_id">Device ID</string>
+    <string name="field_topic_prefix">Topic Prefix</string>
+    <string name="field_value_optional">— optional —</string>
+    <string name="field_optional_tag">OPT</string>
+
+    <!-- Topic preview -->
+    <string name="topic_publishes_to">Publishes to</string>
+    <string name="topic_state_suffix" translatable="false">/state</string>
+    <string name="topic_default_prefix" translatable="false">fire2mqtt</string>
+    <string name="topic_default_device" translatable="false">fire_tv</string>
+
+    <!-- Global status badge -->
+    <string name="status_running">Running</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_testing">Testing</string>
+    <string name="status_disconnected">Disconnected</string>
+
+    <!-- Connection panel status lines -->
+    <string name="conn_running">Service running</string>
+    <string name="conn_connected">Broker connected</string>
+    <string name="conn_testing">Testing connection</string>
+    <string name="conn_failed">Connection failed</string>
+    <string name="conn_disconnected">Disconnected</string>
+
+    <!-- Connection status messages (subline) -->
+    <string name="msg_no_broker">No broker configured yet.</string>
+    <string name="msg_not_tested">Not tested yet.</string>
+    <string name="msg_connecting">Connecting to %1$s:%2$d…</string>
+    <string name="msg_connected">Connected to %1$s:%2$d.</string>
+    <string name="msg_timed_out">Timed out connecting to %1$s:%2$d.</string>
+    <string name="msg_bad_host">Cannot resolve \'%1$s\' — use a LAN IP.</string>
+    <string name="msg_no_host">No broker host set — add one first.</string>
+    <string name="msg_failed">Connection failed: %1$s</string>
+    <string name="msg_publishing">Publishing live Fire TV state.</string>
+    <string name="msg_service_stopped">Service stopped.</string>
+
+    <!-- Actions -->
     <string name="btn_test_connection">Test Connection</string>
     <string name="btn_test_connection_testing">Testing…</string>
-    <string name="btn_start_service">Start Service</string>
-    <string name="btn_done">I\'m Done</string>
+    <string name="btn_start_service">▶ Start Service</string>
+    <string name="btn_stop_service">■ Stop Service</string>
+    <string name="helper_test_to_enable">Test the connection to enable</string>
+    <string name="helper_grant_to_enable">Grant all permissions to enable</string>
 
-    <!-- Permissions screen -->
-    <string name="perm_title">Permissions</string>
-    <string name="perm_btn_enable">Enable permissions</string>
-    <string name="perm_btn_refresh">Refresh status</string>
-    <string name="perm_enabled_ok">Permissions enabled</string>
-    <string name="perm_enabled_fail">Could not enable — check that WRITE_SECURE_SETTINGS is granted</string>
-    <string name="perm_have_wss">Fire2MQTT can enable its permissions itself. Tap the button below.</string>
-    <string name="perm_need_wss">Fire OS hides these toggles for sideloaded apps. Grant one permission via ADB, then return here — the app enables the rest automatically.\n\n1. On the Fire TV: Settings &gt; My Fire TV &gt; Developer Options &gt; enable ADB Debugging.\n2. From a computer on the same network, run:</string>
-    <string name="perm_adb_command">adb connect %1$s:5555\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS</string>
+    <!-- Permissions -->
+    <string name="perm_notif_name">Notification Access</string>
+    <string name="perm_notif_desc">Read media &amp; playback state</string>
+    <string name="perm_access_name">Accessibility Access</string>
+    <string name="perm_access_desc">Track foreground app, screen &amp; volume</string>
+    <string name="perm_enabled">Enabled</string>
+    <string name="perm_pending">Pending</string>
+    <string name="perm_recheck">Re-check</string>
+    <string name="perm_count_suffix">/ 2 enabled</string>
+
+    <!-- One-time ADB setup (grant WRITE_SECURE_SETTINGS, then the app self-enables access) -->
+    <string name="adb_setup_title">ONE-TIME SETUP</string>
+    <string name="adb_setup_body">Fire OS hides these toggles for sideloaded apps. From a computer on the same network, run this once — the app enables the rest itself, then press Re-check.</string>
+    <string name="adb_command" translatable="false">adb connect %1$s:5555\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS</string>
+
+    <!-- Hint bar -->
+    <string name="hint_navigate">Navigate</string>
+    <string name="hint_select">Select</string>
+    <string name="hint_back">Back</string>
+    <string name="hint_footer">Fire TV · sideloaded</string>
 </resources>

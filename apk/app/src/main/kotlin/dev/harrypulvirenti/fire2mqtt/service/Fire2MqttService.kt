@@ -25,7 +25,8 @@ import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
 import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
-import dev.harrypulvirenti.fire2mqtt.ui.SettingsActivity
+import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
+import dev.harrypulvirenti.fire2mqtt.ui.MainActivity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.encodeToString
@@ -42,10 +43,15 @@ class Fire2MqttService : Service() {
     private var commandRouter: CommandRouter? = null
     private var pipelineJob: Job? = null
 
+    companion object {
+        @Volatile var isRunning: Boolean = false
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
+        isRunning = true
         // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
         // access so the watchers (key injection, media sessions, foreground app) work.
         SecureSettingsManager.ensureAllEnabled(this)
@@ -64,6 +70,7 @@ class Fire2MqttService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         scope.cancel()
         pipelineJob = null
         mqttClient?.disconnect()
@@ -71,13 +78,13 @@ class Fire2MqttService : Service() {
     }
 
     private suspend fun startPipeline() {
-        val prefs = SettingsActivity.getPrefs(this)
-        val prefix = prefs.getString("topic_prefix", "fire2mqtt") ?: "fire2mqtt"
-        val deviceId = prefs.getString("device_id", "fire_tv") ?: "fire_tv"
-        val host = prefs.getString("broker_host", "") ?: ""
-        val port = prefs.getString("broker_port", "1883")?.toIntOrNull() ?: 1883
-        val username = prefs.getString("broker_username", null)
-        val password = prefs.getString("broker_password", null)
+        val s = SettingsRepository(this).load()
+        val host = s.host
+        val port = s.port
+        val username = s.username.ifBlank { null }
+        val password = s.password.ifBlank { null }
+        val deviceId = s.deviceId
+        val prefix = s.topicPrefix
 
         if (host.isBlank()) {
             logger.e { "Broker host not configured — stopping service" }
@@ -244,7 +251,7 @@ class Fire2MqttService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val intent = Intent(this, SettingsActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
         val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, Fire2MqttApp.SERVICE_CHANNEL_ID)
             .setContentTitle("Fire2MQTT")

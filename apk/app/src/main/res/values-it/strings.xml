@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="brand_tagline">Ponte Fire TV → Home Assistant</string>
+
+    <!-- Card headers (eyebrows) -->
+    <string name="card_mqtt_broker">Broker MQTT</string>
+    <string name="card_device_identity">Identità dispositivo</string>
+    <string name="card_connection">Connessione</string>
+    <string name="card_permissions">Autorizzazioni</string>
+
+    <!-- Broker / device fields -->
+    <string name="field_host">Host</string>
+    <string name="field_host_hint">IP o nome host</string>
+    <string name="field_host_placeholder">es. 192.168.1.42</string>
+    <string name="field_port">Porta</string>
+    <string name="field_port_hint">SELECT per modificare</string>
+    <string name="field_port_adjust_hint">◂ ▸ per regolare</string>
+    <string name="field_username">Nome utente</string>
+    <string name="field_password">Password</string>
+    <string name="field_device_id">ID dispositivo</string>
+    <string name="field_topic_prefix">Prefisso topic</string>
+    <string name="field_value_optional">— facoltativo —</string>
+    <string name="field_optional_tag">OPZ</string>
+
+    <!-- Topic preview -->
+    <string name="topic_publishes_to">Pubblica su</string>
+
+    <!-- Global status badge -->
+    <string name="status_running">In esecuzione</string>
+    <string name="status_connected">Connesso</string>
+    <string name="status_testing">Verifica</string>
+    <string name="status_disconnected">Disconnesso</string>
+
+    <!-- Connection panel status lines -->
+    <string name="conn_running">Servizio in esecuzione</string>
+    <string name="conn_connected">Broker connesso</string>
+    <string name="conn_testing">Verifica connessione</string>
+    <string name="conn_failed">Connessione non riuscita</string>
+    <string name="conn_disconnected">Disconnesso</string>
+
+    <!-- Connection status messages (subline) -->
+    <string name="msg_no_broker">Nessun broker configurato.</string>
+    <string name="msg_not_tested">Non ancora verificato.</string>
+    <string name="msg_connecting">Connessione a %1$s:%2$d…</string>
+    <string name="msg_connected">Connesso a %1$s:%2$d.</string>
+    <string name="msg_timed_out">Timeout durante la connessione a %1$s:%2$d.</string>
+    <string name="msg_bad_host">Impossibile risolvere \'%1$s\' — usa un IP della rete locale.</string>
+    <string name="msg_no_host">Nessun host broker impostato — aggiungine uno prima.</string>
+    <string name="msg_failed">Connessione non riuscita: %1$s</string>
+    <string name="msg_publishing">Pubblicazione dello stato della Fire TV in tempo reale.</string>
+    <string name="msg_service_stopped">Servizio arrestato.</string>
+
+    <!-- Actions -->
+    <string name="btn_test_connection">Verifica connessione</string>
+    <string name="btn_test_connection_testing">Verifica…</string>
+    <string name="btn_start_service">▶ Avvia servizio</string>
+    <string name="btn_stop_service">■ Arresta servizio</string>
+    <string name="helper_test_to_enable">Verifica la connessione per abilitare</string>
+    <string name="helper_grant_to_enable">Concedi tutte le autorizzazioni per abilitare</string>
+
+    <!-- Permissions -->
+    <string name="perm_notif_name">Accesso alle notifiche</string>
+    <string name="perm_notif_desc">Legge lo stato di media e riproduzione</string>
+    <string name="perm_access_name">Accesso all\'accessibilità</string>
+    <string name="perm_access_desc">Rileva app in primo piano, schermo e volume</string>
+    <string name="perm_enabled">Attivo</string>
+    <string name="perm_pending">In attesa</string>
+    <string name="perm_recheck">Ricontrolla</string>
+    <string name="perm_count_suffix">/ 2 attivi</string>
+
+    <!-- One-time ADB setup -->
+    <string name="adb_setup_title">CONFIGURAZIONE INIZIALE</string>
+    <string name="adb_setup_body">Fire OS nasconde queste opzioni per le app sideloaded. Da un computer sulla stessa rete, esegui una volta questo comando — l\'app abilita il resto da sola, poi premi Ricontrolla.</string>
+
+    <!-- Hint bar -->
+    <string name="hint_navigate">Naviga</string>
+    <string name="hint_select">Seleziona</string>
+    <string name="hint_back">Indietro</string>
+    <string name="hint_footer">Fire TV · sideloaded</string>
+</resources>
