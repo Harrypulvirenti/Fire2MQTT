@@ -1,21 +1,22 @@
 package dev.harrypulvirenti.fire2mqtt.commands
 
-import android.content.Context
 import android.view.KeyEvent
 import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import dev.harrypulvirenti.fire2mqtt.mqtt.VolumeCommandPayload
 import kotlinx.serialization.json.Json
+import org.koin.core.annotation.Factory
+import org.koin.core.annotation.InjectedParam
 
 private val logger = Logger.withTag("Fire2MQTT/CommandRouter")
 
+@Factory
 class CommandRouter(
-    context: Context,
-    private val prefix: String,
-    private val deviceId: String,
+    @InjectedParam private val prefix: String,
+    @InjectedParam private val deviceId: String,
+    private val appLauncher: AppLauncher,
+    private val volumeController: VolumeController,
 ) {
-    private val appLauncher = AppLauncher(context)
-    private val volumeController = VolumeController(context)
 
     private val keyMap = mapOf(
         "HOME" to KeyEvent.KEYCODE_HOME,

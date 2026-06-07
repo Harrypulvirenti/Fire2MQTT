@@ -134,7 +134,7 @@ fun SetupDashboard(
                     Card {
                         Eyebrow(stringResource(R.string.card_connection))
                         Spacer(Modifier.height(8.dp))
-                        ConnectionStatus(state.connection, state.connectionMessage)
+                        ConnectionStatus(state.connection, state.connectionMessage.resolve())
                         Spacer(Modifier.height(14.dp))
                         SecondaryButton(
                             text = if (state.connection == ConnState.Testing)
@@ -203,23 +203,21 @@ fun SetupDashboard(
 /* ── Preview ──────────────────────────────────────────────────────────── */
 
 /** Configured + running: green badge, both permissions enabled, WSS held. */
-@Composable
 private fun previewConfiguredState() = SetupUiState(
     host = "192.168.1.42", port = 1883,
     username = "homeassistant", password = "mqttpass",
     deviceId = "living_room_tv", topicPrefix = "fire2mqtt",
     connection = ConnState.Running,
-    connectionMessage = stringResource(R.string.msg_publishing),
+    connectionMessage = TextValue.TextResource(R.string.msg_publishing),
     perms = Perms(accessibility = true, notification = true),
     writeSecureSettings = true,
     isServiceRunning = true,
 )
 
 /** First run: nothing configured, no permissions, WSS not yet granted (ADB card shown). */
-@Composable
 private fun previewFirstRunState() = SetupUiState(
     connection = ConnState.Disconnected,
-    connectionMessage = stringResource(R.string.msg_no_broker),
+    connectionMessage = TextValue.TextResource(R.string.msg_no_broker),
     writeSecureSettings = false,
     adbIp = "192.168.1.50",
 )

@@ -8,7 +8,9 @@ import android.os.PowerManager
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import org.koin.core.annotation.Factory
 
+@Factory
 class ScreenWatcher(private val context: Context) {
 
     fun screenStateFlow(): Flow<Boolean> = callbackFlow {

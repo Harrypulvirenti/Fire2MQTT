@@ -1,6 +1,7 @@
 package dev.harrypulvirenti.fire2mqtt.data
 
 import android.content.Context
+import org.koin.core.annotation.Single
 
 /**
  * Typed wrapper over SharedPreferences, using the same name/mode that
@@ -9,6 +10,7 @@ import android.content.Context
  *
  * Key names and defaults are frozen — the running service and prior installs depend on them.
  */
+@Single
 class SettingsRepository(private val context: Context) {
 
     private val prefs = context.getSharedPreferences(

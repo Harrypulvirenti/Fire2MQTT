@@ -4,6 +4,7 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository.MqttSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.koin.core.annotation.Factory
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -30,6 +31,7 @@ sealed interface TestResult {
  * Probes an MQTT broker with a short-lived MQTT 5 client.
  * All network work is dispatched to [Dispatchers.IO] internally.
  */
+@Factory
 class ConnectionTester {
 
     suspend fun test(settings: MqttSettings): TestResult = withContext(Dispatchers.IO) {

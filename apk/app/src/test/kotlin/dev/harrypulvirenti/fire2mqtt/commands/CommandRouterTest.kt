@@ -1,13 +1,10 @@
 package dev.harrypulvirenti.fire2mqtt.commands
 
-import android.content.Context
-import android.media.AudioManager
 import android.view.KeyEvent
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.runs
 import io.mockk.unmockkAll
@@ -25,27 +22,20 @@ private const val DEVICE_ID = "firestick"
 class CommandRouterTest {
 
     private lateinit var router: CommandRouter
+    private lateinit var appLauncher: AppLauncher
+    private lateinit var volumeController: VolumeController
 
     @BeforeEach
     fun setUp() {
-        mockkConstructor(AppLauncher::class)
-        mockkConstructor(VolumeController::class)
+        // DI makes these plain mocks — no mockkConstructor / Context plumbing needed.
+        appLauncher = mockk()
+        volumeController = mockk(relaxed = true)
         mockkObject(Fire2MqttAccessibilityService.Companion)
 
-        every { anyConstructed<AppLauncher>().launch(any()) } returns true
-        every { anyConstructed<VolumeController>().set(any()) } just runs
-        every { anyConstructed<VolumeController>().stepUp() } just runs
-        every { anyConstructed<VolumeController>().stepDown() } just runs
-        every { anyConstructed<VolumeController>().mute() } just runs
-        every { anyConstructed<VolumeController>().unmute() } just runs
+        every { appLauncher.launch(any()) } returns true
         every { Fire2MqttAccessibilityService.sendKey(any()) } returns true
 
-        // VolumeController's real constructor calls context.getSystemService(AudioManager) —
-        // provide a proper mock so the cast succeeds (mockkConstructor runs the constructor body).
-        val audioManager = mockk<AudioManager>(relaxed = true)
-        val context = mockk<Context>(relaxed = true)
-        every { context.getSystemService(AudioManager::class.java) } returns audioManager
-        router = CommandRouter(context, PREFIX, DEVICE_ID)
+        router = CommandRouter(PREFIX, DEVICE_ID, appLauncher, volumeController)
     }
 
     @AfterEach
@@ -55,12 +45,12 @@ class CommandRouterTest {
 
     @Test fun `cmdLaunch routes package name to AppLauncher`() {
         router.route(TopicSchema.cmdLaunch(PREFIX, DEVICE_ID), "com.example.app")
-        verify { anyConstructed<AppLauncher>().launch("com.example.app") }
+        verify { appLauncher.launch("com.example.app") }
     }
 
     @Test fun `cmdLaunch trims whitespace from payload`() {
         router.route(TopicSchema.cmdLaunch(PREFIX, DEVICE_ID), "  com.example.app  ")
-        verify { anyConstructed<AppLauncher>().launch("com.example.app") }
+        verify { appLauncher.launch("com.example.app") }
     }
 
     // --- cmdKey ---
@@ -97,33 +87,33 @@ class CommandRouterTest {
 
     @Test fun `cmdVolume set calls VolumeController set with level`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), """{"action":"set","level":10}""")
-        verify { anyConstructed<VolumeController>().set(10) }
+        verify { volumeController.set(10) }
     }
 
     @Test fun `cmdVolume up calls stepUp`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), """{"action":"up"}""")
-        verify { anyConstructed<VolumeController>().stepUp() }
+        verify { volumeController.stepUp() }
     }
 
     @Test fun `cmdVolume down calls stepDown`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), """{"action":"down"}""")
-        verify { anyConstructed<VolumeController>().stepDown() }
+        verify { volumeController.stepDown() }
     }
 
     @Test fun `cmdVolume mute calls mute`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), """{"action":"mute"}""")
-        verify { anyConstructed<VolumeController>().mute() }
+        verify { volumeController.mute() }
     }
 
     @Test fun `cmdVolume unmute calls unmute`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), """{"action":"unmute"}""")
-        verify { anyConstructed<VolumeController>().unmute() }
+        verify { volumeController.unmute() }
     }
 
     @Test fun `cmdVolume malformed JSON does not crash`() {
         router.route(TopicSchema.cmdVolume(PREFIX, DEVICE_ID), "not-json")
-        verify(exactly = 0) { anyConstructed<VolumeController>().set(any()) }
-        verify(exactly = 0) { anyConstructed<VolumeController>().stepUp() }
+        verify(exactly = 0) { volumeController.set(any()) }
+        verify(exactly = 0) { volumeController.stepUp() }
     }
 
     // --- cmdPower ---
@@ -168,7 +158,7 @@ class CommandRouterTest {
 
     @Test fun `unknown topic is silently ignored`() {
         router.route("totally/unknown/topic", "payload")
-        verify(exactly = 0) { anyConstructed<AppLauncher>().launch(any()) }
+        verify(exactly = 0) { appLauncher.launch(any()) }
         verify(exactly = 0) { Fire2MqttAccessibilityService.sendKey(any()) }
     }
 }

@@ -6,6 +6,10 @@ import android.app.NotificationManager
 import android.os.Build
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.LogcatWriter
+import dev.harrypulvirenti.fire2mqtt.di.AppModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.startKoin
+import org.koin.ksp.generated.module
 
 class Fire2MqttApp : Application() {
 
@@ -13,6 +17,10 @@ class Fire2MqttApp : Application() {
         super.onCreate()
         Logger.addLogWriter(LogcatWriter())
         createNotificationChannel()
+        startKoin {
+            androidContext(this@Fire2MqttApp)
+            modules(AppModule().module)
+        }
     }
 
     private fun createNotificationChannel() {

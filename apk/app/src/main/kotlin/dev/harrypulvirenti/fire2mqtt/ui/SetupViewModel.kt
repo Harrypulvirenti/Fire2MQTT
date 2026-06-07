@@ -2,7 +2,7 @@ package dev.harrypulvirenti.fire2mqtt.ui
 
 import android.app.Application
 import android.content.Intent
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.data.PermissionChecker
@@ -16,14 +16,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.android.annotation.KoinViewModel
 
-class SetupViewModel(app: Application) : AndroidViewModel(app) {
-
-    private val repository = SettingsRepository(app)
-    private val permissionChecker = PermissionChecker(app)
-
-    private fun str(resId: Int, vararg args: Any): String =
-        getApplication<Application>().getString(resId, *args)
+@KoinViewModel
+class SetupViewModel(
+    private val app: Application,
+    private val repository: SettingsRepository,
+    private val permissionChecker: PermissionChecker,
+    private val connectionTester: ConnectionTester,
+) : ViewModel() {
 
     private val _state: MutableStateFlow<SetupUiState>
 
@@ -47,8 +48,8 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
                 deviceId    = s.deviceId,
                 topicPrefix = s.topicPrefix,
                 connection  = ConnState.Disconnected,
-                connectionMessage = if (s.host.isBlank()) str(R.string.msg_no_broker)
-                                    else str(R.string.msg_not_tested),
+                connectionMessage = if (s.host.isBlank()) TextValue.TextResource(R.string.msg_no_broker)
+                                    else TextValue.TextResource(R.string.msg_not_tested),
                 ready       = true,
             ).withPerms(snap)
         }
@@ -63,8 +64,8 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(
             host = value,
             connection = ConnState.Disconnected,
-            connectionMessage = if (value.isBlank()) str(R.string.msg_no_broker)
-                                else str(R.string.msg_not_tested),
+            connectionMessage = if (value.isBlank()) TextValue.TextResource(R.string.msg_no_broker)
+                                else TextValue.TextResource(R.string.msg_not_tested),
         )
     }
 
@@ -102,19 +103,19 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
         if (current.host.isBlank()) {
             _state.value = current.copy(
                 connection        = ConnState.Failed,
-                connectionMessage = str(R.string.msg_no_host),
+                connectionMessage = TextValue.TextResource(R.string.msg_no_host),
             )
             return
         }
 
         _state.value = current.copy(
             connection        = ConnState.Testing,
-            connectionMessage = str(R.string.msg_connecting, current.host, current.port),
+            connectionMessage = TextValue.TextResource(R.string.msg_connecting, listOf(current.host, current.port)),
         )
 
         viewModelScope.launch {
             val settings = repository.load()
-            val result = ConnectionTester().test(settings)
+            val result = connectionTester.test(settings)
             _state.value = _state.value.copy(
                 connection        = when (result) {
                     is TestResult.Connected -> ConnState.Connected
@@ -122,15 +123,15 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 connectionMessage = when (result) {
                     is TestResult.Connected ->
-                        str(R.string.msg_connected, result.host, result.port)
+                        TextValue.TextResource(R.string.msg_connected, listOf(result.host, result.port))
                     is TestResult.TimedOut  ->
-                        str(R.string.msg_timed_out, result.host, result.port)
+                        TextValue.TextResource(R.string.msg_timed_out, listOf(result.host, result.port))
                     is TestResult.BadHost   ->
-                        str(R.string.msg_bad_host, result.host)
+                        TextValue.TextResource(R.string.msg_bad_host, listOf(result.host))
                     is TestResult.NoHost    ->
-                        str(R.string.msg_no_host)
+                        TextValue.TextResource(R.string.msg_no_host)
                     is TestResult.Failed    ->
-                        str(R.string.msg_failed, result.reason)
+                        TextValue.TextResource(R.string.msg_failed, listOf(result.reason))
                 },
             )
         }
@@ -138,7 +139,6 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startService() {
         if (!_state.value.canStart) return
-        val app = getApplication<Application>()
         // ContextCompat handles the API < 26 path (plain startService) — minSdk is 25.
         androidx.core.content.ContextCompat.startForegroundService(
             app, Intent(app, Fire2MqttService::class.java),
@@ -146,18 +146,17 @@ class SetupViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(
             isServiceRunning  = true,
             connection        = ConnState.Running,
-            connectionMessage = str(R.string.msg_publishing),
+            connectionMessage = TextValue.TextResource(R.string.msg_publishing),
         )
     }
 
     fun stopService() {
-        val app = getApplication<Application>()
         app.stopService(Intent(app, Fire2MqttService::class.java))
         val wasRunning = _state.value.connection == ConnState.Running
         _state.value = _state.value.copy(
             isServiceRunning  = false,
             connection        = if (wasRunning) ConnState.Connected else ConnState.Disconnected,
-            connectionMessage = str(R.string.msg_service_stopped),
+            connectionMessage = TextValue.TextResource(R.string.msg_service_stopped),
         )
     }
 

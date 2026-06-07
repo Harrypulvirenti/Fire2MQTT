@@ -1,11 +1,14 @@
 package dev.harrypulvirenti.fire2mqtt.ui
 
+import dev.harrypulvirenti.fire2mqtt.R
+
 /**
  * The frozen state contract between the setup UI (Compose) and its logic (SetupViewModel).
  *
  * The UI is a pure function of [SetupUiState] and emits events through plain lambdas
  * hoisted from the ViewModel (see SetupDashboard's parameters). Keeping the screen
  * stateless lets it render in @Preview with no-op lambdas and no Android dependencies.
+ * Status text is carried as a [TextValue] the UI resolves at render time.
  */
 
 /** Live connection / service status, driving the status panel + global badge. */
@@ -32,8 +35,8 @@ data class SetupUiState(
     val deviceId: String = "fire_tv",
     val topicPrefix: String = "fire2mqtt",
     val connection: ConnState = ConnState.Disconnected,
-    /** Human-readable status subline, e.g. "Connected to 192.168.1.42:1883." */
-    val connectionMessage: String = "No broker configured yet.",
+    /** Status subline as a resource ref, e.g. msg_connected(host, port). Resolved by the UI. */
+    val connectionMessage: TextValue = TextValue.TextResource(R.string.msg_no_broker),
     val perms: Perms = Perms(),
     /** Whether WRITE_SECURE_SETTINGS is held — the one-time ADB grant that unlocks self-enable. */
     val writeSecureSettings: Boolean = false,

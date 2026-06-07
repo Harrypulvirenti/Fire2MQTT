@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -59,6 +60,13 @@ dependencies {
 
     // Logging
     implementation(libs.kermit)
+
+    // Dependency injection — Koin (+ annotations via KSP)
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.annotations)
+    ksp(libs.koin.ksp.compiler)
 
     // AndroidX
     implementation(libs.androidx.core.ktx)

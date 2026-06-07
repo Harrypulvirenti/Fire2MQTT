@@ -2,7 +2,9 @@ package dev.harrypulvirenti.fire2mqtt.commands
 
 import android.content.Context
 import android.media.AudioManager
+import org.koin.core.annotation.Factory
 
+@Factory
 class VolumeController(context: Context) {
     private val audio = context.getSystemService(AudioManager::class.java)
 

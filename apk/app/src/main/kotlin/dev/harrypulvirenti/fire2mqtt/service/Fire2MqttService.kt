@@ -3,7 +3,6 @@ package dev.harrypulvirenti.fire2mqtt.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
-import android.content.ComponentName
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.os.IBinder
@@ -12,7 +11,6 @@ import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.Fire2MqttApp
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
-import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
@@ -31,6 +29,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.koin.android.ext.android.get
+import org.koin.android.ext.android.inject
+import org.koin.core.parameter.parametersOf
 import java.net.NetworkInterface
 
 private val logger = Logger.withTag("Fire2MQTT/Service")
@@ -39,6 +40,7 @@ private const val NOTIFICATION_ID = 1
 class Fire2MqttService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val settings: SettingsRepository by inject()
     private var mqttClient: Fire2MqttClient? = null
     private var commandRouter: CommandRouter? = null
     private var pipelineJob: Job? = null
@@ -78,7 +80,7 @@ class Fire2MqttService : Service() {
     }
 
     private suspend fun startPipeline() {
-        val s = SettingsRepository(this).load()
+        val s = settings.load()
         val host = s.host
         val port = s.port
         val username = s.username.ifBlank { null }
@@ -116,7 +118,7 @@ class Fire2MqttService : Service() {
             deviceId = deviceId,
         )
 
-        val client = Fire2MqttClient(config)
+        val client = get<Fire2MqttClient> { parametersOf(config) }
         mqttClient = client
 
         // Pre-seed the retained-state cache before connecting. These publishes
@@ -155,11 +157,8 @@ class Fire2MqttService : Service() {
             backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
         }
 
-        commandRouter = CommandRouter(this, prefix, deviceId)
-        val mediaWatcher = MediaSessionWatcher(
-            this,
-            ComponentName(this, MediaNotificationListener::class.java)
-        )
+        commandRouter = get<CommandRouter> { parametersOf(prefix, deviceId) }
+        val mediaWatcher = get<MediaSessionWatcher>()
 
         // All long-lived collectors run as children of pipelineJob via coroutineScope.
         // coroutineScope suspends until every child completes; the flows are infinite
@@ -188,7 +187,7 @@ class Fire2MqttService : Service() {
 
             // Foreground app
             launch {
-                ForegroundAppWatcher(this@Fire2MqttService).foregroundAppFlow()
+                this@Fire2MqttService.get<ForegroundAppWatcher>().foregroundAppFlow()
                     .catch { logger.e(it) { "ForegroundApp error: ${it.message}" } }
                     .collect { event ->
                         val appJson = Json.encodeToString(
@@ -200,7 +199,7 @@ class Fire2MqttService : Service() {
 
             // Screen state
             launch {
-                ScreenWatcher(this@Fire2MqttService).screenStateFlow()
+                this@Fire2MqttService.get<ScreenWatcher>().screenStateFlow()
                     .catch { logger.e(it) { "Screen error: ${it.message}" } }
                     .collect { on ->
                         val json = Json.encodeToString(ScreenPayload(on = on))
@@ -210,7 +209,7 @@ class Fire2MqttService : Service() {
 
             // Volume
             launch {
-                VolumeWatcher(this@Fire2MqttService).volumeFlow()
+                this@Fire2MqttService.get<VolumeWatcher>().volumeFlow()
                     .catch { logger.e(it) { "Volume error: ${it.message}" } }
                     .collect { vol ->
                         client.publish(

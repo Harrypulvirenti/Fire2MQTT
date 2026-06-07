@@ -10,6 +10,8 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5WillPublish
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import org.koin.core.annotation.Factory
+import org.koin.core.annotation.InjectedParam
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -31,7 +33,8 @@ data class MqttConfig(
     val deviceId: String,
 )
 
-class Fire2MqttClient(private val config: MqttConfig) {
+@Factory
+class Fire2MqttClient(@InjectedParam private val config: MqttConfig) {
 
     private var client: Mqtt5AsyncClient? = null
     private var onConnected: (() -> Unit)? = null

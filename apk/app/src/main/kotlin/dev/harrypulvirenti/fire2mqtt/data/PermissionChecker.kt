@@ -2,6 +2,7 @@ package dev.harrypulvirenti.fire2mqtt.data
 
 import android.content.Context
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
+import org.koin.core.annotation.Single
 
 /**
  * Thin seam over [SecureSettingsManager] for the UI/ViewModel. The app needs exactly two
@@ -9,6 +10,7 @@ import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
  * WRITE_SECURE_SETTINGS. (Usage Access was dropped: foreground detection runs on the
  * accessibility service, and PACKAGE_USAGE_STATS can't be self-granted on Fire OS.)
  */
+@Single
 class PermissionChecker(private val context: Context) {
 
     /** Whether the one-time WRITE_SECURE_SETTINGS ADB grant is held. */

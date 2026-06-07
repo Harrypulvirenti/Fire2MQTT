@@ -11,7 +11,9 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.VolumePayload
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import org.koin.core.annotation.Factory
 
+@Factory
 class VolumeWatcher(private val context: Context) {
 
     private val audio = context.getSystemService(AudioManager::class.java)

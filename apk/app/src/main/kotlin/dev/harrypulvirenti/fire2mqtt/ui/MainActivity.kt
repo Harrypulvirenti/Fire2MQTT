@@ -9,9 +9,9 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.harrypulvirenti.fire2mqtt.ui.components.TvDesignScale
 import dev.harrypulvirenti.fire2mqtt.ui.theme.Fire2MqttTheme
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * Single Compose entry point — the merged setup + permissions dashboard.
@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             Fire2MqttTheme {
-                val vm: SetupViewModel = viewModel()
+                val vm: SetupViewModel = koinViewModel()
                 val state by vm.state.collectAsStateWithLifecycle()
 
                 // Hold the splash until the off-thread initial load populates the state.
