@@ -16,7 +16,7 @@ subscribes and exposes proper entities.
 Fire TV Stick (APK)                MQTT broker               Home Assistant
 ─────────────────────              ──────────                ──────────────
 MediaSessionManager  ─── state/playback ──────────────────▶  media_player
-UsageStatsManager    ─── state/app ────────────────────────▶  sensor: current_app
+AccessibilityService ─── state/app ────────────────────────▶  sensor: current_app
 AudioManager         ─── state/volume ─────────────────────▶  sensor: volume
 ScreenReceiver       ─── state/screen ─────────────────────▶  binary_sensor: screen
                      ◀── cmd/launch ─────────────────────────  button: launch app
@@ -33,15 +33,21 @@ State is **push-only** — the HA integration never polls. Changes arrive in <10
 ### Entities per device
 | Entity | Type | Description |
 |--------|------|-------------|
-| `media_player.<device>` | Media Player | Playback state, title, position, volume control |
+| `media_player.<device>` | Media Player | Playback state (incl. off/standby), title, position, source select, volume, turn on/off |
 | `sensor.<device>_current_app` | Sensor | Foreground app friendly name |
-| `sensor.<device>_current_app_package` | Sensor | Foreground app package name |
+| `sensor.<device>_current_app_package` | Sensor | Foreground app package name (diagnostic, disabled by default) |
 | `sensor.<device>_media_title` | Sensor | Now playing title |
 | `sensor.<device>_media_artist` | Sensor | Now playing artist |
 | `sensor.<device>_volume_level` | Sensor | Volume 0–100% |
+| `sensor.<device>_ip_address` | Sensor | Device IP (diagnostic, disabled by default) |
 | `binary_sensor.<device>_screen` | Binary Sensor | Screen on/off |
+| `binary_sensor.<device>_connectivity` | Binary Sensor | APK online/offline (stays available while offline) |
 | `button.<device>_launch_<app>` | Button | Launch a curated streaming app |
-| `remote.<device>` | Remote | Send key events (HOME, BACK, DPAD, etc.) |
+| `remote.<device>` | Remote | Send key events (HOME, BACK, DPAD, etc.), turn on/off |
+
+Add one config entry per Fire Stick — every entry gets its own device, entities,
+and MQTT topic namespace (`<prefix>/<device_id>/…`), so multiple sticks coexist
+cleanly on one broker.
 
 ### Curated app state detection (v1)
 Out of the box, correct `playing` / `paused` / `idle` states for:

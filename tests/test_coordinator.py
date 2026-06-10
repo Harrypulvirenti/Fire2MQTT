@@ -5,6 +5,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.fire2mqtt.const import (
     TOPIC_CMD_KEY,
@@ -24,7 +25,13 @@ from custom_components.fire2mqtt.coordinator import Fire2MqttCoordinator
 
 @pytest.fixture
 def coordinator(hass):
-    return Fire2MqttCoordinator(hass, topic_prefix="fire2mqtt", device_id="test_device")
+    entry = MockConfigEntry(
+        domain="fire2mqtt",
+        title="Fire TV test_device",
+        data={"device_id": "test_device", "topic_prefix": "fire2mqtt"},
+    )
+    entry.add_to_hass(hass)
+    return Fire2MqttCoordinator(hass, entry, topic_prefix="fire2mqtt", device_id="test_device")
 
 
 def make_msg(payload: str | dict) -> MagicMock:
@@ -73,7 +80,13 @@ def test_invalid_json_does_not_crash(coordinator):
 
 
 def test_topic_builder(coordinator):
-    assert coordinator._topic("{prefix}/{device_id}/status") == "fire2mqtt/test_device/status"
+    assert coordinator._bus.topic("{prefix}/{device_id}/status") == "fire2mqtt/test_device/status"
+
+
+def test_non_object_json_is_rejected(coordinator):
+    coordinator._on_playback(make_msg('"just a string"'))
+    coordinator._on_playback(make_msg("42"))
+    assert coordinator.data.playback == {}
 
 
 def test_device_info_callback_updates_data(coordinator):

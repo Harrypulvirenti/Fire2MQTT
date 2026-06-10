@@ -2,24 +2,29 @@
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from . import Fire2MqttConfigEntry
 from .coordinator import Fire2MqttCoordinator
 from .entity import Fire2MqttEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: Fire2MqttConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: Fire2MqttCoordinator = entry.runtime_data.coordinator
+    coordinator = entry.runtime_data.coordinator
     async_add_entities([
         CurrentAppSensor(coordinator),
         CurrentAppPackageSensor(coordinator),
         MediaTitleSensor(coordinator),
         MediaArtistSensor(coordinator),
         VolumeLevelSensor(coordinator),
+        IpAddressSensor(coordinator),
     ])
 
 
@@ -42,6 +47,7 @@ class CurrentAppSensor(Fire2MqttEntity, SensorEntity):
 class CurrentAppPackageSensor(Fire2MqttEntity, SensorEntity):
     _attr_name = "Current App Package"
     _attr_icon = "mdi:package-variant"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
@@ -79,7 +85,7 @@ class MediaArtistSensor(Fire2MqttEntity, SensorEntity):
 class VolumeLevelSensor(Fire2MqttEntity, SensorEntity):
     _attr_name = "Volume Level"
     _attr_icon = "mdi:volume-high"
-    _attr_native_unit_of_measurement = "%"
+    _attr_native_unit_of_measurement = PERCENTAGE
 
     def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
         super().__init__(coordinator, "volume_level")
@@ -99,3 +105,17 @@ class VolumeLevelSensor(Fire2MqttEntity, SensorEntity):
             "max_level": vol.get("max"),
             "muted": vol.get("mute"),
         }
+
+
+class IpAddressSensor(Fire2MqttEntity, SensorEntity):
+    _attr_name = "IP Address"
+    _attr_icon = "mdi:ip-network"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
+        super().__init__(coordinator, "ip_address")
+
+    @property
+    def native_value(self) -> str | None:
+        return self.coordinator.data.device_info.get("ip") or None

@@ -6,11 +6,21 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant import loader
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+# Imported for its side effect: puts the custom_components package in
+# sys.modules so HA's loader discovers the integration even when a test file
+# that doesn't import it directly is run on its own.
+import custom_components.fire2mqtt  # noqa: F401
+
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Let every test load integrations from custom_components/."""
+    yield
 
 DEVICE_ID = "test_device"
 PREFIX = "fire2mqtt"
@@ -79,6 +89,7 @@ def mock_mqtt_publish():
 def config_entry(hass: HomeAssistant) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain="fire2mqtt",
+        title=f"Fire TV {DEVICE_ID}",
         data={"device_id": DEVICE_ID, "topic_prefix": PREFIX},
         options={},
     )
@@ -88,7 +99,6 @@ def config_entry(hass: HomeAssistant) -> MockConfigEntry:
 
 @pytest.fixture
 async def setup_integration(hass: HomeAssistant, config_entry: MockConfigEntry, mock_mqtt_subscribe, mock_mqtt_publish):
-    hass.data.pop(loader.DATA_CUSTOM_COMPONENTS, None)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     yield config_entry

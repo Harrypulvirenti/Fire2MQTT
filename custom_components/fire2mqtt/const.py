@@ -1,3 +1,5 @@
+from homeassistant.const import Platform
+
 DOMAIN = "fire2mqtt"
 SCHEMA_VERSION = 1
 
@@ -33,9 +35,26 @@ TOPIC_CMD_VOLUME = "{prefix}/{device_id}/cmd/volume"
 TOPIC_CMD_POWER = "{prefix}/{device_id}/cmd/power"
 TOPIC_CMD_MEDIA = "{prefix}/{device_id}/cmd/media"
 
+# Foreground packages that mean "sitting on the home screen" — used by the
+# media player's idle-timeout logic to report STANDBY after CONF_IDLE_TIMEOUT.
+LAUNCHER_PACKAGES = frozenset({
+    "com.amazon.tv.launcher",
+    "com.amazon.firetv.launcher",
+})
+
+# HA rejects states longer than 255 chars; cap coerced strings so a buggy or
+# malicious MQTT publisher can't blow up entity updates or bloat the recorder.
+MAX_PAYLOAD_STR_LENGTH = 255
+
 MEDIA_SESSION_STATE_NONE = 0
 MEDIA_SESSION_STATE_STOPPED = 1
 MEDIA_SESSION_STATE_PAUSED = 2
 MEDIA_SESSION_STATE_PLAYING = 3
 
-PLATFORMS = ["media_player", "sensor", "binary_sensor", "button", "remote"]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.MEDIA_PLAYER,
+    Platform.REMOTE,
+    Platform.SENSOR,
+]

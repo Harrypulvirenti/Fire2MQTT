@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_DEVICE_ID, CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX, DOMAIN, PLATFORMS
+from .const import CONF_DEVICE_ID, CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX, PLATFORMS
 from .coordinator import Fire2MqttCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: Fire2MqttConfigEntry) ->
     device_id = entry.data[CONF_DEVICE_ID]
     prefix = entry.data.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
 
-    coordinator = Fire2MqttCoordinator(hass, prefix, device_id)
+    coordinator = Fire2MqttCoordinator(hass, entry, prefix, device_id)
     await coordinator.async_setup()
 
     entry.runtime_data = Fire2MqttRuntimeData(coordinator=coordinator)

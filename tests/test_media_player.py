@@ -144,3 +144,71 @@ async def test_turn_off_publishes_sleep(hass: HomeAssistant, online, mock_mqtt_p
 async def test_select_source_publishes_launch(hass: HomeAssistant, online, mock_mqtt_publish):
     await hass.services.async_call("media_player", "select_source", {"entity_id": ENTITY_ID, "source": "Netflix"}, blocking=True)
     assert any(t == TOPIC_CMD_LAUNCH and p == "com.netflix.ninja" for t, p in mock_mqtt_publish.published)
+
+
+async def test_turn_on_publishes_wake(hass: HomeAssistant, online, mock_mqtt_publish):
+    await hass.services.async_call("media_player", "turn_on", {"entity_id": ENTITY_ID}, blocking=True)
+    assert any(t == TOPIC_CMD_POWER and p == "wake" for t, p in mock_mqtt_publish.published)
+
+
+async def test_volume_up_publishes_step(hass: HomeAssistant, online, mock_mqtt_publish):
+    await hass.services.async_call("media_player", "volume_up", {"entity_id": ENTITY_ID}, blocking=True)
+    volume_publishes = [json.loads(p) for t, p in mock_mqtt_publish.published if t == TOPIC_CMD_VOLUME]
+    assert any(p == {"action": "up"} for p in volume_publishes)
+
+
+async def test_volume_down_publishes_step(hass: HomeAssistant, online, mock_mqtt_publish):
+    await hass.services.async_call("media_player", "volume_down", {"entity_id": ENTITY_ID}, blocking=True)
+    volume_publishes = [json.loads(p) for t, p in mock_mqtt_publish.published if t == TOPIC_CMD_VOLUME]
+    assert any(p == {"action": "down"} for p in volume_publishes)
+
+
+async def test_screen_off_reports_off(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    from tests.conftest import TOPIC_SCREEN
+
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False, "ts": 1}))
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": True, "ts": 2}))
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state != "off"
+
+
+async def test_media_position_updated_at_from_ts(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({
+        "media_session_state": 3, "title": "T", "position_ms": 1000,
+        "duration_ms": 2000, "ts": 1747000000000,
+    }))
+    await hass.async_block_till_done()
+    attrs = hass.states.get(ENTITY_ID).attributes
+    updated_at = attrs.get("media_position_updated_at")
+    assert updated_at is not None
+    assert updated_at.timestamp() == 1747000000.0
+
+
+async def test_launcher_reports_idle_then_standby(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    from datetime import timedelta
+
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.tv.launcher", "name": "Home"})
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    # Default idle timeout is 10 minutes; jump past it.
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "standby"
+
+    # Leaving the launcher resets standby detection.
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"})
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "idle"
