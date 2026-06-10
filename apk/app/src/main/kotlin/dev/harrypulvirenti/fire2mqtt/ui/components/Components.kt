@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +47,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.harrypulvirenti.fire2mqtt.R
@@ -75,38 +78,50 @@ import dev.harrypulvirenti.fire2mqtt.ui.theme.JetBrainsMono
  * ──────────────────────────────────────────────────────────────────────── */
 
 /**
+ * Animated focus scale for [tvFocus]. Hoisted out of the modifier factory so
+ * tvFocus stays a plain (non-composable) Modifier builder, per the Compose API
+ * guidelines on modifier factories.
+ */
+@Composable
+fun animateTvFocusScale(focused: Boolean): State<Float> = animateFloatAsState(
+    targetValue = if (focused) Fire2MqttTheme.focus.scale else 1f,
+    animationSpec = tween(170),
+    label = "focusScale",
+)
+
+/**
  * The canonical TV focus visual: animated scale-up + ember ring + outer glow when
  * [focused], a hairline border otherwise. Pair with a [MutableInteractionSource]
  * fed into [clickable]/[focusable]/[BasicTextField] so [focused] tracks D-pad focus.
+ *
+ * [scale] is a provider (from [animateTvFocusScale]) read inside the graphics
+ * layer, so animation frames update the layer without recomposing the caller.
  */
-@Composable
 fun Modifier.tvFocus(
     focused: Boolean,
-    shape: androidx.compose.ui.graphics.Shape,
+    scale: () -> Float,
+    shape: Shape,
     bg: Color,
     baseBorder: Color,
-    ring: Color = Fire2MqttTheme.colors.ember,
-): Modifier {
-    val target = if (focused) Fire2MqttTheme.focus.scale else 1f
-    val scale by animateFloatAsState(target, tween(170), label = "focusScale")
-    return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
-        .then(
-            if (focused) Modifier.shadow(
-                elevation = 30.dp,
-                shape = shape,
-                ambientColor = ring.copy(alpha = .55f),
-                spotColor = ring.copy(alpha = .65f),
-            ) else Modifier
-        )
-        .clip(shape)
-        .background(bg, shape)
-        .border(
-            width = if (focused) Fire2MqttTheme.focus.ringWidth else 1.dp,
-            color = if (focused) ring else baseBorder,
+    ring: Color,
+    ringWidth: Dp,
+): Modifier = this
+    .graphicsLayer { scaleX = scale(); scaleY = scale() }
+    .then(
+        if (focused) Modifier.shadow(
+            elevation = 30.dp,
             shape = shape,
-        )
-}
+            ambientColor = ring.copy(alpha = .55f),
+            spotColor = ring.copy(alpha = .65f),
+        ) else Modifier
+    )
+    .clip(shape)
+    .background(bg, shape)
+    .border(
+        width = if (focused) ringWidth else 1.dp,
+        color = if (focused) ring else baseBorder,
+        shape = shape,
+    )
 
 private val fieldShape = RoundedCornerShape(15.dp)
 val cardShape = RoundedCornerShape(22.dp)
@@ -268,6 +283,7 @@ fun FieldRow(
     val c = Fire2MqttTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val focusScale by animateTvFocusScale(focused)
     val keyboard = LocalSoftwareKeyboardController.current
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(editing) { if (editing) keyboard?.show() }
@@ -288,7 +304,9 @@ fun FieldRow(
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         modifier = modifier
             .fillMaxWidth()
-            .tvFocus(focused, fieldShape, if (focused) c.surface3 else c.surface2, c.line)
+            .tvFocus(focused, { focusScale }, fieldShape,
+                if (focused) c.surface3 else c.surface2, c.line,
+                c.ember, Fire2MqttTheme.focus.ringWidth)
             .editToggle(editing, { editing = it }, { keyboard?.hide() })
             .onFocusChanged { if (!it.isFocused) editing = false }
             .padding(horizontal = 22.dp, vertical = 15.dp),
@@ -332,6 +350,7 @@ fun CompactField(
     val c = Fire2MqttTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val focusScale by animateTvFocusScale(focused)
     val keyboard = LocalSoftwareKeyboardController.current
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(editing) { if (editing) keyboard?.show() }
@@ -352,7 +371,9 @@ fun CompactField(
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         modifier = modifier
             .fillMaxWidth()
-            .tvFocus(focused, fieldShape, if (focused) c.surface3 else c.surface2, c.line)
+            .tvFocus(focused, { focusScale }, fieldShape,
+                if (focused) c.surface3 else c.surface2, c.line,
+                c.ember, Fire2MqttTheme.focus.ringWidth)
             .editToggle(editing, { editing = it }, { keyboard?.hide() })
             .onFocusChanged { if (!it.isFocused) editing = false }
             .padding(horizontal = 18.dp, vertical = 14.dp),
@@ -412,6 +433,7 @@ fun PortStepper(value: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifi
     val c = Fire2MqttTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val focusScale by animateTvFocusScale(focused)
     var active by remember { mutableStateOf(false) }
     // Leaving the field (focus lost) always exits edit mode.
     LaunchedEffect(focused) { if (!focused) active = false }
@@ -430,8 +452,10 @@ fun PortStepper(value: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifi
                     else -> false
                 }
             }
-            .tvFocus(focused, fieldShape, if (active) c.surface3 else c.surface2,
-                if (active) c.ember.copy(alpha = .6f) else c.line)
+            .tvFocus(focused, { focusScale }, fieldShape,
+                if (active) c.surface3 else c.surface2,
+                if (active) c.ember.copy(alpha = .6f) else c.line,
+                c.ember, Fire2MqttTheme.focus.ringWidth)
             .clickable(interaction, indication = null, role = Role.Button) { active = !active }
             .padding(horizontal = 22.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -535,10 +559,12 @@ fun SecondaryButton(text: String, testing: Boolean, onClick: () -> Unit) {
     val c = Fire2MqttTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val focusScale by animateTvFocusScale(focused)
     Row(
         Modifier
             .fillMaxWidth()
-            .tvFocus(focused, fieldShape, c.surface2, c.line2)
+            .tvFocus(focused, { focusScale }, fieldShape, c.surface2, c.line2,
+                c.ember, Fire2MqttTheme.focus.ringWidth)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .padding(vertical = 18.dp),
         horizontalArrangement = Arrangement.Center,
@@ -560,8 +586,7 @@ fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
     val bg = if (enabled)
         Brush.verticalGradient(listOf(Color(0xFFFF8C2E), c.ember))
     else Brush.verticalGradient(listOf(c.surface2, c.surface2))
-    val scale by animateFloatAsState(if (focused && enabled) Fire2MqttTheme.focus.scale else 1f,
-        tween(170), label = "primaryScale")
+    val scale by animateTvFocusScale(focused && enabled)
     Row(
         Modifier
             .fillMaxWidth()
