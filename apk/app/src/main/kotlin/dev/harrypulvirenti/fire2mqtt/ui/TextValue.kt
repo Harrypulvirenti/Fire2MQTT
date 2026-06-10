@@ -2,6 +2,7 @@ package dev.harrypulvirenti.fire2mqtt.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -10,10 +11,14 @@ import androidx.compose.ui.res.stringResource
  * the actual, locale-correct text at render time, so resource resolution stays out of the
  * ViewModel (which therefore needs no Context for strings).
  */
+@Immutable
 sealed interface TextValue {
 
+    @Immutable
     data class TextString(val value: String) : TextValue
 
+    /** [args] must hold immutable values (strings, numbers) — never mutated after creation. */
+    @Immutable
     data class TextResource(
         @StringRes val resId: Int,
         val args: List<Any> = emptyList(),

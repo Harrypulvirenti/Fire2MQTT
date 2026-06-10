@@ -1,5 +1,6 @@
 package dev.harrypulvirenti.fire2mqtt.ui
 
+import androidx.compose.runtime.Immutable
 import dev.harrypulvirenti.fire2mqtt.R
 
 /**
@@ -19,6 +20,7 @@ enum class ConnState { Disconnected, Testing, Connected, Failed, Running }
  * access via WRITE_SECURE_SETTINGS (see SecureSettingsManager) — these two are all that's
  * needed (foreground detection runs on the accessibility service; Usage Access was dropped).
  */
+@Immutable
 data class Perms(
     val accessibility: Boolean = false,
     val notification: Boolean = false,
@@ -27,6 +29,7 @@ data class Perms(
     val allGranted: Boolean = accessibility && notification
 }
 
+@Immutable
 data class SetupUiState(
     val host: String = "",
     val port: Int = 1883,

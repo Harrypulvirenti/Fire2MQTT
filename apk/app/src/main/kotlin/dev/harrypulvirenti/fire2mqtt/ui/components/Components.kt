@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -38,8 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -227,13 +230,13 @@ private fun GlobalStatusBadge(connection: ConnState, isRunning: Boolean) {
     }
     Row(
         Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(Color(0x4D000000), RoundedCornerShape(999.dp))
-            .border(1.dp, c.line2, RoundedCornerShape(999.dp))
+            .clip(CircleShape)
+            .background(Color(0x4D000000), CircleShape)
+            .border(1.dp, c.line2, CircleShape)
             .padding(horizontal = 22.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(13.dp).background(color, RoundedCornerShape(999.dp)))
+        Box(Modifier.size(13.dp).background(color, CircleShape))
         Spacer(Modifier.width(13.dp))
         Text(label.uppercase(), color = color, fontFamily = JetBrainsMono,
             fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 2.sp)
@@ -445,7 +448,7 @@ fun PortStepper(value: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifi
             }
             .tvFocus(focused, fieldShape, if (active) c.surface3 else c.surface2,
                 if (active) c.ember.copy(alpha = .6f) else c.line)
-            .clickable(interaction, indication = null) { active = !active }
+            .clickable(interaction, indication = null, role = Role.Button) { active = !active }
             .padding(horizontal = 22.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -476,7 +479,10 @@ private fun StepBtn(glyph: String, active: Boolean, onClick: () -> Unit) {
             .clip(RoundedCornerShape(11.dp))
             .background(Color(0x40000000), RoundedCornerShape(11.dp))
             .border(1.dp, if (active) c.ember.copy(alpha = .45f) else c.line2, RoundedCornerShape(11.dp))
-            .clickable(onClick = onClick),
+            // Not a D-pad stop: the stepper row's key handler owns ±; this stays
+            // clickable for pointer/talkback without adding an extra focus target.
+            .focusProperties { canFocus = false }
+            .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(glyph, color = if (active) c.ember2 else c.text2, fontSize = 24.sp,
@@ -531,7 +537,7 @@ fun ConnectionStatus(connection: ConnState, message: String) {
     }
     Column(Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(18.dp).background(color, RoundedCornerShape(999.dp)))
+            Box(Modifier.size(18.dp).background(color, CircleShape))
             Spacer(Modifier.width(16.dp))
             Text(label, color = color, fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Bold, fontSize = 32.sp)
@@ -550,7 +556,7 @@ fun SecondaryButton(text: String, testing: Boolean, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .tvFocus(focused, fieldShape, c.surface2, c.line2)
-            .clickable(interaction, indication = null, onClick = onClick)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .padding(vertical = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -589,7 +595,7 @@ fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
                 if (focused && enabled) c.ember else c.line,
                 fieldShape,
             )
-            .clickable(interaction, indication = null, enabled = enabled, onClick = onClick)
+            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 18.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
@@ -648,8 +654,8 @@ fun PermissionRow(icon: PermIcon, name: String, desc: String, enabled: Boolean) 
         if (enabled) {
             Row(
                 Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(c.green.copy(alpha = .16f), RoundedCornerShape(999.dp))
+                    .clip(CircleShape)
+                    .background(c.green.copy(alpha = .16f), CircleShape)
                     .padding(horizontal = 18.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -754,18 +760,25 @@ private fun Modifier.widthForCap(cap: String): Modifier =
     if (cap.length > 1) this.width(46.dp) else this.width(30.dp)
 
 /* ─────────────────────────────────────────────────────────────────────────
- * TV design canvas — maps the 1920×1080 design space onto the real panel by
- * overriding LocalDensity (1 design-px = 1 dp). Unlike a graphicsLayer scale this
- * lays out in real pixels, so it fills the screen edge-to-edge with no letterbox
- * and crisp text, on any TV resolution.
+ * TV design canvas — lays the UI out on a fixed-width logical canvas by
+ * overriding LocalDensity so 1 dp = (screen width / designWidthDp) px. Unlike a
+ * graphicsLayer scale this lays out in real pixels, so it fills the screen
+ * edge-to-edge with no letterbox and crisp text, on any TV resolution.
+ *
+ * The canvas is 1550 design-dp wide: the 1920×1080 design was authored at that
+ * logical width so everything renders ~1.24× larger — TV ten-foot sizing.
+ *
+ * Tradeoff (deliberate): inside this scope dp values no longer match device dp,
+ * so anything that assumes physical density (system-inset conversions, minimum
+ * touch-target enforcement) would be off. Acceptable for a TV-only, D-pad app.
  * ──────────────────────────────────────────────────────────────────────── */
 @Composable
-fun TvDesignScale(designWidthPx: Float = 1550f, content: @Composable () -> Unit) {
+fun TvDesignScale(designWidthDp: Float = 1550f, content: @Composable () -> Unit) {
     val c = Fire2MqttTheme.colors
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val base = androidx.compose.ui.platform.LocalDensity.current
     val screenWidthPx = config.screenWidthDp * base.density
-    val targetDensity = (screenWidthPx / designWidthPx).coerceAtLeast(0.1f)
+    val targetDensity = (screenWidthPx / designWidthDp).coerceAtLeast(0.1f)
     androidx.compose.runtime.CompositionLocalProvider(
         androidx.compose.ui.platform.LocalDensity provides
             androidx.compose.ui.unit.Density(targetDensity, base.fontScale),
