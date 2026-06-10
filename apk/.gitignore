@@ -127,6 +127,8 @@ google-services.json
 
 # Package Files #
 *.jar
+# ... but the Gradle wrapper jar must be committed or ./gradlew cannot run
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear

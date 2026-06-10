@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "feature/**", "claude/**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: APK · unit tests + assembleDebug
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apk
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle runs on 21; the Kotlin jvmToolchain(17) resolves from the
+      # runner's preinstalled Temurin 17 (/usr/lib/jvm).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew test
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fire2mqtt-debug-apk
+          path: apk/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  ha:
+    name: HA integration · pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Pulls a matching homeassistant + pytest pin set.
+      - name: Install test harness
+        run: pip install pytest-homeassistant-custom-component
+
+      - name: Run tests
+        run: python -m pytest -q
