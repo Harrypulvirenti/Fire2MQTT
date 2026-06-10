@@ -26,9 +26,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.ui.components.AdbSetupCard
 import dev.harrypulvirenti.fire2mqtt.ui.components.Card
@@ -46,7 +45,6 @@ import dev.harrypulvirenti.fire2mqtt.ui.components.SecondaryButton
 import dev.harrypulvirenti.fire2mqtt.ui.components.TopicPreview
 import dev.harrypulvirenti.fire2mqtt.ui.components.TvDesignScale
 import dev.harrypulvirenti.fire2mqtt.ui.theme.Fire2MqttTheme
-import dev.harrypulvirenti.fire2mqtt.ui.theme.JetBrainsMono
 
 @Composable
 fun SetupDashboard(
@@ -156,9 +154,9 @@ fun SetupDashboard(
                                 if (state.connection != ConnState.Connected)
                                     stringResource(R.string.helper_test_to_enable)
                                 else stringResource(R.string.helper_grant_to_enable),
-                                color = c.text4, fontFamily = JetBrainsMono, fontSize = 15.sp,
+                                color = c.text4, style = Fire2MqttTheme.type.body,
                                 modifier = Modifier.fillMaxWidth(),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
@@ -171,9 +169,9 @@ fun SetupDashboard(
                             Eyebrow(stringResource(R.string.card_permissions))
                             Row {
                                 Text("${state.perms.grantedCount}", color = c.green,
-                                    fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                                    style = Fire2MqttTheme.type.itemEmphasis)
                                 Text(" ${stringResource(R.string.perm_count_suffix)}", color = c.text3,
-                                    fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                                    style = Fire2MqttTheme.type.itemEmphasis)
                             }
                         }
                         Spacer(Modifier.height(14.dp))

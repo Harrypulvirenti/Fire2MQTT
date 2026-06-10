@@ -56,7 +56,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -127,14 +126,7 @@ fun Eyebrow(label: String, modifier: Modifier = Modifier) {
                 .background(c.ember, RoundedCornerShape(3.dp))
         )
         Spacer(Modifier.width(12.dp))
-        Text(
-            label.uppercase(),
-            color = c.text3,
-            fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-            letterSpacing = 3.sp,
-        )
+        Text(label.uppercase(), color = c.text3, style = Fire2MqttTheme.type.eyebrow)
     }
 }
 
@@ -201,18 +193,15 @@ fun Header(connection: ConnState, isRunning: Boolean) {
             Spacer(Modifier.width(18.dp))
             Column {
                 Row {
-                    Text("Fire", color = c.text, fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.Bold, fontSize = 30.sp)
-                    Text("2", color = c.ember, fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.ExtraBold, fontSize = 30.sp)
-                    Text("MQTT", color = c.text, fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.Bold, fontSize = 30.sp)
+                    Text("Fire", color = c.text, style = Fire2MqttTheme.type.wordmark)
+                    Text("2", color = c.ember, style = Fire2MqttTheme.type.wordmark,
+                        fontWeight = FontWeight.ExtraBold)
+                    Text("MQTT", color = c.text, style = Fire2MqttTheme.type.wordmark)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     stringResource(R.string.brand_tagline).uppercase(),
-                    color = c.text3, fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Medium, fontSize = 13.sp, letterSpacing = 3.sp,
+                    color = c.text3, style = Fire2MqttTheme.type.tagline,
                 )
             }
         }
@@ -239,8 +228,7 @@ private fun GlobalStatusBadge(connection: ConnState, isRunning: Boolean) {
     ) {
         Box(Modifier.size(13.dp).background(color, CircleShape))
         Spacer(Modifier.width(13.dp))
-        Text(label.uppercase(), color = color, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 2.sp)
+        Text(label.uppercase(), color = color, style = Fire2MqttTheme.type.badge)
     }
 }
 
@@ -289,10 +277,7 @@ fun FieldRow(
         onValueChange = onValueChange,
         singleLine = true,
         readOnly = !editing,
-        textStyle = TextStyle(
-            color = c.text, fontFamily = JetBrainsMono, fontWeight = FontWeight.Medium,
-            fontSize = 20.sp, textAlign = TextAlign.End,
-        ),
+        textStyle = Fire2MqttTheme.type.value.copy(color = c.text, textAlign = TextAlign.End),
         cursorBrush = SolidColor(c.ember),
         interactionSource = interaction,
         keyboardOptions = KeyboardOptions(
@@ -310,20 +295,19 @@ fun FieldRow(
         decorationBox = { inner ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.width(200.dp)) {
-                    Text(label, color = c.text, fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.SemiBold, fontSize = 19.sp, maxLines = 1)
+                    Text(label, color = c.text, style = Fire2MqttTheme.type.label, maxLines = 1)
                     if (hint != null) {
                         Spacer(Modifier.height(3.dp))
-                        Text(hint.uppercase(), color = c.text4, fontFamily = JetBrainsMono,
-                            fontSize = 12.sp, letterSpacing = 1.5.sp, maxLines = 1)
+                        Text(hint.uppercase(), color = c.text4,
+                            style = Fire2MqttTheme.type.hint, maxLines = 1)
                     }
                 }
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                     if (value.isEmpty()) {
                         Text(
                             if (optional) stringResource(R.string.field_value_optional) else placeholder,
-                            color = c.text4, fontFamily = JetBrainsMono,
-                            fontSize = 20.sp, maxLines = 1, textAlign = TextAlign.End,
+                            color = c.text4, style = Fire2MqttTheme.type.value,
+                            maxLines = 1, textAlign = TextAlign.End,
                         )
                     }
                     inner()
@@ -357,8 +341,7 @@ fun CompactField(
         onValueChange = onValueChange,
         singleLine = true,
         readOnly = !editing,
-        textStyle = TextStyle(color = c.text, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.Medium, fontSize = 19.sp),
+        textStyle = Fire2MqttTheme.type.valueSmall.copy(color = c.text),
         cursorBrush = SolidColor(c.ember),
         interactionSource = interaction,
         keyboardOptions = KeyboardOptions(
@@ -381,12 +364,12 @@ fun CompactField(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, color = c.text, fontFamily = JetBrainsMono,
-                            fontWeight = FontWeight.SemiBold, fontSize = 18.sp, maxLines = 1)
+                        Text(label, color = c.text, style = Fire2MqttTheme.type.labelSmall,
+                            maxLines = 1)
                         if (optional) {
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.field_optional_tag), color = c.text4,
-                                fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 1.sp)
+                                style = Fire2MqttTheme.type.hint)
                         }
                     }
                     EditPip(focused)
@@ -395,7 +378,7 @@ fun CompactField(
                 Box {
                     if (value.isEmpty()) {
                         Text(stringResource(R.string.field_value_optional), color = c.text4,
-                            fontFamily = JetBrainsMono, fontSize = 19.sp, maxLines = 1)
+                            style = Fire2MqttTheme.type.valueSmall, maxLines = 1)
                     }
                     inner()
                 }
@@ -454,18 +437,18 @@ fun PortStepper(value: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifi
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.field_port), color = c.text, fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
+            Text(stringResource(R.string.field_port), color = c.text,
+                style = Fire2MqttTheme.type.label)
             Spacer(Modifier.height(3.dp))
             val hint = if (active) stringResource(R.string.field_port_adjust_hint)
                        else stringResource(R.string.field_port_hint)
             Text(hint.uppercase(), color = if (active) c.ember2 else c.text4,
-                fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 1.5.sp)
+                style = Fire2MqttTheme.type.hint)
         }
         StepBtn("–", active) { step(-1) }
         Spacer(Modifier.width(16.dp))
-        Text("$value", color = if (active) c.ember2 else c.text, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.SemiBold, fontSize = 26.sp)
+        Text("$value", color = if (active) c.ember2 else c.text,
+            style = Fire2MqttTheme.type.stepperValue)
         Spacer(Modifier.width(16.dp))
         StepBtn("+", active) { step(1) }
     }
@@ -508,16 +491,16 @@ fun TopicPreview(prefix: String, deviceId: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(R.string.topic_publishes_to).uppercase(), color = c.text4,
-            fontFamily = JetBrainsMono, fontSize = 13.sp, letterSpacing = 1.5.sp)
+            style = Fire2MqttTheme.type.caption)
         Spacer(Modifier.width(16.dp))
         Row {
             Text(prefix.ifBlank { stringResource(R.string.topic_default_prefix) }, color = c.ember2,
-                fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-            Text("/", color = c.text2, fontFamily = JetBrainsMono, fontSize = 18.sp)
+                style = Fire2MqttTheme.type.itemEmphasis)
+            Text("/", color = c.text2, style = Fire2MqttTheme.type.itemBody)
             Text(deviceId.ifBlank { stringResource(R.string.topic_default_device) }, color = c.ember2,
-                fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                style = Fire2MqttTheme.type.itemEmphasis)
             Text(stringResource(R.string.topic_state_suffix), color = c.text2,
-                fontFamily = JetBrainsMono, fontSize = 18.sp)
+                style = Fire2MqttTheme.type.itemBody)
         }
     }
 }
@@ -540,11 +523,10 @@ fun ConnectionStatus(connection: ConnState, message: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(18.dp).background(color, CircleShape))
             Spacer(Modifier.width(16.dp))
-            Text(label, color = color, fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.Bold, fontSize = 32.sp)
+            Text(label, color = color, style = Fire2MqttTheme.type.statusTitle)
         }
         Spacer(Modifier.height(8.dp))
-        Text(message, color = c.text3, fontFamily = JetBrainsMono, fontSize = 18.sp)
+        Text(message, color = c.text3, style = Fire2MqttTheme.type.itemBody)
     }
 }
 
@@ -566,8 +548,7 @@ fun SecondaryButton(text: String, testing: Boolean, onClick: () -> Unit) {
             CircularProgressIndicator(Modifier.size(20.dp), color = c.text, strokeWidth = 3.dp)
             Spacer(Modifier.width(14.dp))
         }
-        Text(text, color = c.text, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.SemiBold, fontSize = 22.sp)
+        Text(text, color = c.text, style = Fire2MqttTheme.type.button)
     }
 }
 
@@ -600,8 +581,8 @@ fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
             .padding(vertical = 18.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
-        Text(text, color = if (enabled) c.emberInk else c.text3, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.Bold, fontSize = 23.sp)
+        Text(text, color = if (enabled) c.emberInk else c.text3,
+            style = Fire2MqttTheme.type.buttonPrimary)
     }
 }
 
@@ -676,10 +657,9 @@ fun PermissionRow(icon: PermIcon, name: String, desc: String, enabled: Boolean) 
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, color = c.text, fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
+            Text(name, color = c.text, style = Fire2MqttTheme.type.label)
             Spacer(Modifier.height(4.dp))
-            Text(desc, color = c.text3, fontFamily = JetBrainsMono, fontSize = 14.sp,
+            Text(desc, color = c.text3, style = Fire2MqttTheme.type.bodySmall,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(12.dp))
@@ -693,12 +673,12 @@ fun PermissionRow(icon: PermIcon, name: String, desc: String, enabled: Boolean) 
             ) {
                 Icon(Icons.Filled.Check, null, tint = c.green, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.perm_enabled), color = c.green, fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Text(stringResource(R.string.perm_enabled), color = c.green,
+                    style = Fire2MqttTheme.type.itemEmphasis)
             }
         } else {
-            Text(stringResource(R.string.perm_pending), color = c.text4, fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+            Text(stringResource(R.string.perm_pending), color = c.text4,
+                style = Fire2MqttTheme.type.itemEmphasis)
         }
     }
 }
@@ -718,15 +698,15 @@ fun AdbSetupCard(ip: String, onRecheck: () -> Unit) {
             .border(1.dp, c.ember.copy(alpha = .25f), fieldShape)
             .padding(20.dp),
     ) {
-        Text(stringResource(R.string.adb_setup_title), color = c.ember2, fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 1.5.sp)
+        Text(stringResource(R.string.adb_setup_title), color = c.ember2,
+            style = Fire2MqttTheme.type.badge)
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.adb_setup_body), color = c.text2, fontFamily = JetBrainsMono,
-            fontSize = 15.sp, lineHeight = 21.sp)
+        Text(stringResource(R.string.adb_setup_body), color = c.text2,
+            style = Fire2MqttTheme.type.body)
         Spacer(Modifier.height(12.dp))
         Text(
             stringResource(R.string.adb_command, ip),
-            color = c.text, fontFamily = JetBrainsMono, fontSize = 15.sp, lineHeight = 22.sp,
+            color = c.text, style = Fire2MqttTheme.type.body,
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
@@ -758,13 +738,13 @@ fun HintBar() {
         Hint(stringResource(R.string.hint_back))
         Spacer(Modifier.weight(1f))
         Text(stringResource(R.string.hint_footer).uppercase(), color = c.text4,
-            fontFamily = JetBrainsMono, fontSize = 13.sp, letterSpacing = 1.5.sp)
+            style = Fire2MqttTheme.type.caption)
     }
 }
 
 @Composable
 private fun Hint(text: String) {
-    Text(text, color = Fire2MqttTheme.colors.text3, fontFamily = JetBrainsMono, fontSize = 15.sp)
+    Text(text, color = Fire2MqttTheme.colors.text3, style = Fire2MqttTheme.type.body)
 }
 
 @Composable
@@ -782,7 +762,7 @@ private fun Keycaps(caps: List<String>) {
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(cap, color = c.text2, fontFamily = JetBrainsMono, fontSize = 15.sp)
+                Text(cap, color = c.text2, style = Fire2MqttTheme.type.body)
             }
         }
     }

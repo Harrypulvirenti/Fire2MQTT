@@ -54,13 +54,14 @@ data class FocusTokens(
 val LocalFire2MqttColors = staticCompositionLocalOf { Fire2MqttColors() }
 val LocalFocusTokens = staticCompositionLocalOf { FocusTokens() }
 
-/** Convenience accessor: `Fire2MqttTheme.colors.ember`, `Fire2MqttTheme.focus.ringWidth`. */
+/** Convenience accessor: `Fire2MqttTheme.colors.ember`, `Fire2MqttTheme.type.label`. */
 object Fire2MqttTheme {
     val colors: Fire2MqttColors
         @Composable get() = LocalFire2MqttColors.current
     val focus: FocusTokens
         @Composable get() = LocalFocusTokens.current
     val fonts get() = JetBrainsMono
+    val type get() = Fire2MqttType
 }
 
 @Composable
