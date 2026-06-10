@@ -4,12 +4,9 @@ kotlin = "2.4.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.11.0"
 androidxCore = "1.19.0"
-androidxAppcompat = "1.7.1"
-androidxPreference = "1.2.1"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.12.0"
 composeBom = "2025.05.01"
-material = "1.14.0"
 junitJupiter = "6.1.0"
 mockk = "1.14.11"
 kermit = "2.1.0"
@@ -28,9 +25,6 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version = "1.0.1" }
-androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
-material = { module = "com.google.android.material:material", version.ref = "material" }
-androidx-preference-ktx = { module = "androidx.preference:preference-ktx", version.ref = "androidxPreference" }
 androidx-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "androidxLifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
@@ -42,7 +36,8 @@ compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+# Pinned explicitly: the icons artifacts stopped shipping with the Compose BOM after 1.7.x.
+compose-material-icons-core = { module = "androidx.compose.material:material-icons-core", version = "1.7.8" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junitJupiter" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }

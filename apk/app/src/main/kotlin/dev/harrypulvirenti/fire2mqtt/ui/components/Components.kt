@@ -24,9 +24,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.materialIcon
+import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -610,9 +611,40 @@ fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
 
 enum class PermIcon { Notif, Access }
 
+/**
+ * Material's Filled.Accessibility, inlined verbatim so we don't depend on
+ * material-icons-extended for a single glyph (Check/Notifications come from icons-core).
+ */
+private val AccessibilityIcon: ImageVector by lazy {
+    materialIcon(name = "Filled.Accessibility") {
+        materialPath {
+            moveTo(12.0f, 2.0f)
+            curveToRelative(1.1f, 0.0f, 2.0f, 0.9f, 2.0f, 2.0f)
+            reflectiveCurveToRelative(-0.9f, 2.0f, -2.0f, 2.0f)
+            reflectiveCurveToRelative(-2.0f, -0.9f, -2.0f, -2.0f)
+            reflectiveCurveToRelative(0.9f, -2.0f, 2.0f, -2.0f)
+            close()
+            moveTo(21.0f, 9.0f)
+            horizontalLineToRelative(-6.0f)
+            verticalLineToRelative(13.0f)
+            horizontalLineToRelative(-2.0f)
+            verticalLineToRelative(-6.0f)
+            horizontalLineToRelative(-2.0f)
+            verticalLineToRelative(6.0f)
+            horizontalLineTo(9.0f)
+            verticalLineTo(9.0f)
+            horizontalLineTo(3.0f)
+            verticalLineTo(7.0f)
+            horizontalLineToRelative(18.0f)
+            verticalLineToRelative(2.0f)
+            close()
+        }
+    }
+}
+
 private fun PermIcon.vector(): ImageVector = when (this) {
     PermIcon.Notif -> Icons.Filled.Notifications
-    PermIcon.Access -> Icons.Filled.Accessibility
+    PermIcon.Access -> AccessibilityIcon
 }
 
 /** Non-actionable status row: green when the access is enabled, dim "Pending" otherwise. */

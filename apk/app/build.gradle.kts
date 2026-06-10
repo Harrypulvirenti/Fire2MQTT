@@ -48,6 +48,11 @@ android {
     }
 }
 
+// Verify the Koin graph at compile time (missing definitions fail the build).
+ksp {
+    arg("KOIN_CONFIG_CHECK", "true")
+}
+
 dependencies {
     // HiveMQ MQTT 5 Kotlin client — coroutine-native, better lifecycle than paho
     implementation("com.hivemq:hivemq-mqtt-client:1.3.14")
@@ -79,7 +84,9 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
+    // icons-core only (Check, Notifications); the one extended icon we need
+    // (Accessibility) is inlined in ui/components — extended is ~12MB of methods.
+    implementation(libs.compose.material.icons.core)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.androidx.activity.compose)
