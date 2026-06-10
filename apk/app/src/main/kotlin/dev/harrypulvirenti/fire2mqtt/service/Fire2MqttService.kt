@@ -26,6 +26,8 @@ import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
 import dev.harrypulvirenti.fire2mqtt.ui.MainActivity
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -46,14 +48,22 @@ class Fire2MqttService : Service() {
     private var pipelineJob: Job? = null
 
     companion object {
-        @Volatile var isRunning: Boolean = false
+        private val _running = MutableStateFlow(false)
+
+        /**
+         * Whether the foreground service is started, as an observable stream.
+         * SetupViewModel collects this so the dashboard reflects reality even when
+         * the service stops itself (blank host, fatal MQTT error) — no optimistic
+         * UI flags.
+         */
+        val running: StateFlow<Boolean> = _running
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
-        isRunning = true
+        _running.value = true
         // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
         // access so the watchers (key injection, media sessions, foreground app) work.
         SecureSettingsManager.ensureAllEnabled(this)
@@ -72,7 +82,7 @@ class Fire2MqttService : Service() {
     }
 
     override fun onDestroy() {
-        isRunning = false
+        _running.value = false
         scope.cancel()
         pipelineJob = null
         mqttClient?.disconnect()

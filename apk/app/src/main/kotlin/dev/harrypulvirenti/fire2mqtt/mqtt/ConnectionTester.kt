@@ -2,12 +2,16 @@ package dev.harrypulvirenti.fire2mqtt.mqtt
 
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository.MqttSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.Factory
 import java.util.UUID
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
+
+private const val CONNECT_TIMEOUT_MS = 5_000L
 
 /** Result of a one-shot connection probe. */
 sealed interface TestResult {
@@ -58,12 +62,20 @@ class ConnectionTester {
 
         val client = builder.buildAsync()
         try {
-            client.connectWith().cleanStart(true).send().get(5, TimeUnit.SECONDS)
+            // await() suspends instead of blocking the IO thread and propagates
+            // coroutine cancellation to the probe.
+            withTimeout(CONNECT_TIMEOUT_MS) {
+                client.connectWith().cleanStart(true).send().await()
+            }
             runCatching { client.disconnectWith().send() }
             TestResult.Connected(host, port)
-        } catch (e: TimeoutException) {
+        } catch (e: TimeoutCancellationException) {
             runCatching { client.disconnectWith().send() }
             TestResult.TimedOut(host, port)
+        } catch (e: CancellationException) {
+            // Caller (e.g. viewModelScope) was cancelled — clean up and rethrow.
+            runCatching { client.disconnectWith().send() }
+            throw e
         } catch (e: Exception) {
             runCatching { client.disconnectWith().send() }
             TestResult.Failed(e.cause?.message ?: e.message ?: "unknown error")

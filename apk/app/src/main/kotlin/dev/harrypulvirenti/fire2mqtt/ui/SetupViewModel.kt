@@ -52,7 +52,33 @@ class SetupViewModel(
                                     else TextValue.TextResource(R.string.msg_not_tested),
                 ready       = true,
             ).withPerms(snap)
+                // Re-assert live service state in case the collector below ran first
+                // (the copy above resets connection to Disconnected).
+                .applyServiceRunning(Fire2MqttService.running.value)
         }
+        // Mirror the service's actual lifecycle instead of setting flags optimistically:
+        // this also catches the service stopping itself (blank host, fatal MQTT error).
+        viewModelScope.launch {
+            Fire2MqttService.running.collect { running ->
+                _state.value = _state.value.applyServiceRunning(running)
+            }
+        }
+    }
+
+    private fun SetupUiState.applyServiceRunning(running: Boolean): SetupUiState = when {
+        running -> copy(
+            isServiceRunning  = true,
+            connection        = ConnState.Running,
+            connectionMessage = TextValue.TextResource(R.string.msg_publishing),
+        )
+        // Falling edge: the service was running and is now gone. The broker was
+        // reachable while it ran, so fall back to Connected (matches pre-flow behavior).
+        isServiceRunning -> copy(
+            isServiceRunning  = false,
+            connection        = ConnState.Connected,
+            connectionMessage = TextValue.TextResource(R.string.msg_service_stopped),
+        )
+        else -> this
     }
 
     // -------------------------------------------------------------------------
@@ -142,24 +168,15 @@ class SetupViewModel(
     fun startService() {
         if (!_state.value.canStart) return
         // ContextCompat handles the API < 26 path (plain startService) — minSdk is 25.
+        // UI state follows via the Fire2MqttService.running collector in init.
         androidx.core.content.ContextCompat.startForegroundService(
             app, Intent(app, Fire2MqttService::class.java),
-        )
-        _state.value = _state.value.copy(
-            isServiceRunning  = true,
-            connection        = ConnState.Running,
-            connectionMessage = TextValue.TextResource(R.string.msg_publishing),
         )
     }
 
     fun stopService() {
+        // UI state follows via the Fire2MqttService.running collector in init.
         app.stopService(Intent(app, Fire2MqttService::class.java))
-        val wasRunning = _state.value.connection == ConnState.Running
-        _state.value = _state.value.copy(
-            isServiceRunning  = false,
-            connection        = if (wasRunning) ConnState.Connected else ConnState.Disconnected,
-            connectionMessage = TextValue.TextResource(R.string.msg_service_stopped),
-        )
     }
 
     /**
@@ -173,12 +190,11 @@ class SetupViewModel(
         }
     }
 
-    /** Live permission/service snapshot. Reads (and self-enables) on the IO dispatcher. */
+    /** Live permission snapshot. Reads (and self-enables) on the IO dispatcher. */
     private data class PermSnapshot(
         val perms: Perms,
         val wss: Boolean,
         val adbIp: String,
-        val serviceRunning: Boolean,
     )
 
     private suspend fun permSnapshot(): PermSnapshot = withContext(Dispatchers.IO) {
@@ -190,9 +206,8 @@ class SetupViewModel(
                 accessibility = permissionChecker.hasAccessibility(),
                 notification  = permissionChecker.hasNotification(),
             ),
-            wss            = wss,
-            adbIp          = localIp(),
-            serviceRunning = Fire2MqttService.isRunning,
+            wss   = wss,
+            adbIp = localIp(),
         )
     }
 
@@ -200,10 +215,6 @@ class SetupViewModel(
         perms               = snap.perms,
         writeSecureSettings = snap.wss,
         adbIp               = snap.adbIp,
-        isServiceRunning    = snap.serviceRunning,
-        connection          = if (snap.serviceRunning) ConnState.Running
-                              else connection.takeUnless { it == ConnState.Running }
-                                  ?: ConnState.Disconnected,
     )
 
     /** This device's LAN IPv4 (mirrors Fire2MqttService.getLocalIpAddress) for the ADB command. */
