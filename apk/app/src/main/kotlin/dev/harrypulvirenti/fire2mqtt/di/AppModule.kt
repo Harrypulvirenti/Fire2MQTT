@@ -5,9 +5,12 @@ import android.content.Context
 import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.Module
+import org.koin.core.annotation.Single
 
 /**
  * Koin object graph. Most definitions come from class-level annotations
@@ -32,4 +35,8 @@ class AppModule {
             context,
             ComponentName(context, MediaNotificationListener::class.java),
         )
+
+    /** Background dispatcher for ViewModels; tests construct directly with a test dispatcher. */
+    @Single
+    fun ioDispatcher(): CoroutineDispatcher = Dispatchers.IO
 }

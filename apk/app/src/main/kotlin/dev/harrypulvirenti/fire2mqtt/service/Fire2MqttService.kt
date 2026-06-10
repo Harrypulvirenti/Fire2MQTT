@@ -48,7 +48,9 @@ class Fire2MqttService : Service() {
     private var pipelineJob: Job? = null
 
     companion object {
-        private val _running = MutableStateFlow(false)
+        // internal (not private) so SetupViewModelTest can drive the flow;
+        // production writes happen only in onStartCommand/onDestroy below.
+        internal val _running = MutableStateFlow(false)
 
         /**
          * Whether the foreground service is started, as an observable stream.

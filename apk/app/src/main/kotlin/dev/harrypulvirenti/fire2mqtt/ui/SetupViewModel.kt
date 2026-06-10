@@ -10,7 +10,7 @@ import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
 import dev.harrypulvirenti.fire2mqtt.mqtt.ConnectionTester
 import dev.harrypulvirenti.fire2mqtt.mqtt.TestResult
 import dev.harrypulvirenti.fire2mqtt.service.Fire2MqttService
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +24,8 @@ class SetupViewModel(
     private val repository: SettingsRepository,
     private val permissionChecker: PermissionChecker,
     private val connectionTester: ConnectionTester,
+    /** Dispatchers.IO in production (AppModule); injectable so tests stay deterministic. */
+    private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _state: MutableStateFlow<SetupUiState>
@@ -197,7 +199,7 @@ class SetupViewModel(
         val adbIp: String,
     )
 
-    private suspend fun permSnapshot(): PermSnapshot = withContext(Dispatchers.IO) {
+    private suspend fun permSnapshot(): PermSnapshot = withContext(ioDispatcher) {
         val wss = permissionChecker.hasWriteSecureSettings()
         // Once WRITE_SECURE_SETTINGS is held, self-enable both accesses automatically.
         if (wss) permissionChecker.enableAll()
