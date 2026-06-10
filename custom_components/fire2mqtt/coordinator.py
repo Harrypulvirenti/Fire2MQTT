@@ -4,10 +4,12 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from homeassistant.components import mqtt
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -43,15 +45,19 @@ class Fire2MqttData:
 class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
     """Push-driven coordinator. Entities update immediately on MQTT message."""
 
+    config_entry: ConfigEntry
+
     def __init__(
         self,
         hass: HomeAssistant,
+        entry: ConfigEntry,
         topic_prefix: str,
         device_id: str,
     ) -> None:
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN}_{device_id}",
             update_interval=None,  # no polling — MQTT callbacks drive updates
         )
@@ -60,11 +66,10 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         self._bus = MqttBus(hass, topic_prefix, device_id)
         self.data = Fire2MqttData()
 
-    def _topic(self, template: str) -> str:
-        return template.format(prefix=self._prefix, device_id=self._device_id)
-
-    def _cmd_topic(self, template: str) -> str:
-        return template.format(prefix=self._prefix, device_id=self._device_id)
+    @property
+    def device_id(self) -> str:
+        """The user-chosen device slug shared with the APK."""
+        return self._device_id
 
     async def async_setup(self) -> None:
         """Subscribe to all state topics. Called from async_setup_entry."""
@@ -88,10 +93,6 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         """Unsubscribe from all topics. Called from async_unload_entry."""
         await self._bus.teardown()
 
-    async def async_send_command(self, cmd_template: str, payload: Any) -> None:
-        """Publish a command to the Fire Stick via the bus (formats the topic)."""
-        await self._bus.publish(cmd_template, payload)
-
     async def async_launch_app(self, package_or_key: str) -> None:
         await self._bus.publish(TOPIC_CMD_LAUNCH, package_or_key)
 
@@ -101,8 +102,15 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
     async def async_media_command(self, action: str) -> None:
         await self._bus.publish(TOPIC_CMD_MEDIA, action)
 
+    async def async_power(self, action: str) -> None:
+        """Send a power command ("sleep" or "wake")."""
+        await self._bus.publish(TOPIC_CMD_POWER, action)
+
     async def async_set_volume(self, level: int) -> None:
         await self._bus.publish(TOPIC_CMD_VOLUME, {"action": "set", "level": level})
+
+    async def async_volume_step(self, up: bool) -> None:
+        await self._bus.publish(TOPIC_CMD_VOLUME, {"action": "up" if up else "down"})
 
     async def async_mute_volume(self, mute: bool) -> None:
         action = "mute" if mute else "unmute"
@@ -155,12 +163,39 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         if parsed is None:
             return
         self.data.device_info = DevicePayload.from_raw(parsed, logger=_LOGGER)
+        self._sync_device_registry()
         self.async_set_updated_data(self.data)
+
+    @callback
+    def _sync_device_registry(self) -> None:
+        """Push model/firmware/MAC into the device registry.
+
+        HA only reads an entity's device_info when the entity is added, but the
+        state/device payload usually arrives after setup — sync it explicitly.
+        """
+        registry = dr.async_get(self.hass)
+        device = registry.async_get_device(identifiers={(DOMAIN, self._device_id)})
+        if device is None:
+            return
+        info = self.data.device_info
+        updates: dict[str, Any] = {}
+        if model := info.get("model"):
+            updates["model"] = model
+        if fire_os := info.get("fire_os"):
+            updates["sw_version"] = fire_os
+        if mac := info.get("mac"):
+            updates["merge_connections"] = {(dr.CONNECTION_NETWORK_MAC, mac)}
+        if updates:
+            registry.async_update_device(device.id, **updates)
 
     @staticmethod
     def _parse_json(raw: str) -> dict | None:
         try:
-            return json.loads(raw)
+            parsed = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
-            _LOGGER.warning("Fire2MQTT: invalid JSON payload: %r", raw)
+            _LOGGER.warning("Fire2MQTT: invalid JSON payload: %.200r", raw)
             return None
+        if not isinstance(parsed, dict):
+            _LOGGER.warning("Fire2MQTT: payload is not a JSON object: %.200r", raw)
+            return None
+        return parsed

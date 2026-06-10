@@ -5,8 +5,10 @@
   "config_flow": true,
   "dependencies": ["mqtt"],
   "documentation": "https://github.com/Harrypulvirenti/Fire2MQTT",
-  "issue_tracker": "https://github.com/Harrypulvirenti/Fire2MQTT/issues",
+  "integration_type": "device",
   "iot_class": "local_push",
-  "version": "0.2.0",
-  "requirements": ["adb-shell[async]>=0.4.4"]
+  "issue_tracker": "https://github.com/Harrypulvirenti/Fire2MQTT/issues",
+  "loggers": ["adb_shell"],
+  "requirements": ["adb-shell[async]>=0.4.4"],
+  "version": "0.2.0"
 }

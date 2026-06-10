@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from .const import SCHEMA_VERSION
+from .const import MAX_PAYLOAD_STR_LENGTH, SCHEMA_VERSION
 
 # ---------------------------------------------------------------------------
 # Coercion helpers
@@ -53,11 +53,15 @@ def _coerce_str(
     default: str | None,
     logger: logging.Logger | None,
 ) -> str | None:
-    """Return *value* coerced to str, or *default* on failure."""
+    """Return *value* coerced to str, or *default* on failure.
+
+    Strings are capped at MAX_PAYLOAD_STR_LENGTH (HA's state length limit) so
+    an oversized MQTT payload cannot break entity updates or bloat the recorder.
+    """
     if value is None:
         return default
     try:
-        return str(value)
+        coerced = str(value)
     except (TypeError, ValueError):
         if logger:
             logger.warning(
@@ -67,6 +71,16 @@ def _coerce_str(
                 default,
             )
         return default
+    if len(coerced) > MAX_PAYLOAD_STR_LENGTH:
+        if logger:
+            logger.warning(
+                "Fire2MQTT schema: field %r value truncated from %d to %d chars",
+                field,
+                len(coerced),
+                MAX_PAYLOAD_STR_LENGTH,
+            )
+        coerced = coerced[:MAX_PAYLOAD_STR_LENGTH]
+    return coerced
 
 
 def _coerce_bool(

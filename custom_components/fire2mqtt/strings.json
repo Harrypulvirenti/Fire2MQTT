@@ -7,6 +7,14 @@
         "data": {
           "device_name": "Device name",
           "device_id": "Device ID (slug, e.g. living_room_fire_tv)",
+          "topic_prefix": "MQTT topic prefix",
+          "_force_continue": "Continue anyway (APK not reachable yet)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Fire TV Stick",
+        "description": "Change the MQTT topic prefix for device `{device_id}`. The prefix must match the one configured in the Fire2MQTT APK.",
+        "data": {
           "topic_prefix": "MQTT topic prefix"
         }
       },
@@ -28,6 +36,7 @@
     },
     "error": {
       "invalid_device_id": "Device ID must only contain lowercase letters, digits, and underscores.",
+      "invalid_topic_prefix": "Topic prefix may only contain letters, digits, underscores, dashes, and inner slashes (no MQTT wildcards).",
       "apk_not_reachable": "The APK did not respond on the status topic. Check the APK is running and the device ID matches. You can proceed anyway — state will populate when the APK comes online. Check 'Continue anyway' to proceed.",
       "already_configured": "This device is already configured.",
       "adb_unreachable": "Could not reach the Fire TV over ADB. Enable ADB Debugging in Developer Options and check the IP address.",
@@ -40,7 +49,8 @@
     },
     "abort": {
       "mqtt_not_configured": "The MQTT integration must be configured before setting up Fire2MQTT.",
-      "already_configured": "This device ID is already configured."
+      "already_configured": "This device ID is already configured.",
+      "reconfigure_successful": "Reconfiguration was successful."
     }
   },
   "options": {
@@ -49,9 +59,16 @@
         "title": "Fire2MQTT options",
         "data": {
           "enabled_apps": "App launcher buttons to create",
-          "idle_timeout": "Minutes on launcher before reporting 'off'"
+          "idle_timeout": "Minutes on the home screen before reporting 'standby'",
+          "state_detection_rules_override": "State detection rules override (advanced, JSON)"
+        },
+        "data_description": {
+          "state_detection_rules_override": "Optional JSON object mapping an Android package name to a python-androidtv-style rule list, e.g. {\"com.netflix.ninja\": [{\"playing\": {\"media_session_state\": 3}}, \"idle\"]}. Leave empty to use the built-in rules."
         }
       }
+    },
+    "error": {
+      "invalid_rules_override": "The rules override must be a JSON object mapping package names to rule lists."
     }
   }
 }

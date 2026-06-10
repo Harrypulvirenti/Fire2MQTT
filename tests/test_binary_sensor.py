@@ -35,3 +35,21 @@ async def test_screen_off(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False, "ts": 1747000000000}))
     await hass.async_block_till_done()
     assert hass.states.get(SCREEN).state == "off"
+
+
+CONNECTIVITY = "binary_sensor.fire_tv_test_device_connectivity"
+
+
+async def test_connectivity_sensor_stays_available_when_offline(hass: HomeAssistant, setup_integration):
+    # Unlike the other entities, connectivity must keep reporting while offline.
+    assert hass.states.get(CONNECTIVITY).state == "off"
+
+
+async def test_connectivity_sensor_turns_on(hass: HomeAssistant, online):
+    assert hass.states.get(CONNECTIVITY).state == "on"
+
+
+async def test_connectivity_sensor_turns_off_again(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(TOPIC_STATUS, "offline")
+    await hass.async_block_till_done()
+    assert hass.states.get(CONNECTIVITY).state == "off"
