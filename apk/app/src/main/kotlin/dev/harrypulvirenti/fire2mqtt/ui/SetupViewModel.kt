@@ -33,12 +33,12 @@ class SetupViewModel(
 
     init {
         // Seed an empty (ready = false) state, then populate off the main thread. The
-        // launch splash (MainActivity) stays up until ready = true, so the disk read +
+        // launch splash (MainActivity) stays up until ready = true, so the settings read +
         // Settings.Secure writes + network enumeration below never block the first frame.
         _state = MutableStateFlow(SetupUiState())
         state = _state.asStateFlow()
         viewModelScope.launch {
-            val s = withContext(Dispatchers.IO) { repository.load() }
+            val s = repository.load() // DataStore reads on its own IO executor
             val snap = permSnapshot()
             _state.value = _state.value.copy(
                 host        = s.host,
@@ -56,11 +56,13 @@ class SetupViewModel(
     }
 
     // -------------------------------------------------------------------------
-    // Field setters (hoisted to the UI as lambdas)
+    // Field setters (hoisted to the UI as lambdas). UI state updates synchronously
+    // so typing stays responsive; persistence is a suspend DataStore write
+    // (serialized in launch order on the main-dispatcher viewModelScope).
     // -------------------------------------------------------------------------
 
     fun updateHost(value: String) {
-        repository.setHost(value)
+        viewModelScope.launch { repository.setHost(value) }
         _state.value = _state.value.copy(
             host = value,
             connection = ConnState.Disconnected,
@@ -70,27 +72,27 @@ class SetupViewModel(
     }
 
     fun updatePort(value: Int) {
-        repository.setPort(value)
+        viewModelScope.launch { repository.setPort(value) }
         _state.value = _state.value.copy(port = value)
     }
 
     fun updateUsername(value: String) {
-        repository.setUsername(value)
+        viewModelScope.launch { repository.setUsername(value) }
         _state.value = _state.value.copy(username = value)
     }
 
     fun updatePassword(value: String) {
-        repository.setPassword(value)
+        viewModelScope.launch { repository.setPassword(value) }
         _state.value = _state.value.copy(password = value)
     }
 
     fun updateDeviceId(value: String) {
-        repository.setDeviceId(value)
+        viewModelScope.launch { repository.setDeviceId(value) }
         _state.value = _state.value.copy(deviceId = value)
     }
 
     fun updateTopicPrefix(value: String) {
-        repository.setTopicPrefix(value)
+        viewModelScope.launch { repository.setTopicPrefix(value) }
         _state.value = _state.value.copy(topicPrefix = value)
     }
 

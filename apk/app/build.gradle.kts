@@ -76,6 +76,7 @@ dependencies {
     // AndroidX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.service)
 
     // Jetpack Compose (BOM-aligned) — setup dashboard UI
