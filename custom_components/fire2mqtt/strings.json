@@ -2,8 +2,21 @@
   "config": {
     "step": {
       "user": {
+        "title": "Install the Fire2MQTT app on your Fire TV",
+        "description": "Fire2MQTT needs its companion app running on the Fire TV before Home Assistant can talk to it. Choose how to install it. Either way, you'll enter the device details on the next screen.",
+        "menu_options": {
+          "provision_adb": "Install automatically over ADB",
+          "manual_install": "I'll install it myself"
+        }
+      },
+      "manual_install": {
+        "title": "Sideload the app yourself",
+        "description": "Install the Fire2MQTT APK on your Fire TV, open it, and configure your MQTT broker plus a **device ID** in the app.\n\nQuick sideload over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nThe device ID you set in the app must match the one you enter on the next screen. Submit when the app is installed and running.",
+        "data": {}
+      },
+      "config": {
         "title": "Set up Fire TV Stick",
-        "description": "Enter a name and a unique device ID for your Fire TV Stick. The device ID must match the one configured in the Fire2MQTT APK.\n\nSee [MQTT schema docs]({mqtt_schema_url}) for topic details.",
+        "description": "Enter a name and a unique device ID for your Fire TV Stick. The device ID must match the one configured in the Fire2MQTT app.\n\nSee [MQTT schema docs]({mqtt_schema_url}) for topic details.",
         "data": {
           "device_name": "Device name",
           "device_id": "Device ID (slug, e.g. living_room_fire_tv)",
@@ -18,17 +31,9 @@
           "topic_prefix": "MQTT topic prefix"
         }
       },
-      "provision": {
-        "title": "Install the app on your Fire TV?",
-        "description": "Optionally let Home Assistant install the Fire2MQTT APK over ADB and grant the one permission Fire OS hides from the UI. First enable **ADB Debugging** on the Fire TV (Settings > My Fire TV > Developer Options). You can skip this and sideload the app yourself instead.",
-        "menu_options": {
-          "provision_adb": "Install & set up over ADB",
-          "finish": "Skip — I'll install the app myself"
-        }
-      },
       "provision_adb": {
         "title": "Provision over ADB",
-        "description": "Enter your Fire TV's IP address. The first time you connect, accept the authorization dialog that appears on the TV, then submit again.\n\n{detail}",
+        "description": "First enable **ADB Debugging** on the Fire TV (Settings > My Fire TV > Developer Options), then enter its IP address. The first time you connect, accept the authorization dialog that appears on the TV, then submit again.\n\n{detail}",
         "data": {
           "fire_tv_ip": "Fire TV IP address"
         }

@@ -46,14 +46,28 @@ VALID_INPUT = {
 
 # ── config flow ──────────────────────────────────────────────────────────────
 
-async def test_form_shown_on_init(hass: HomeAssistant):
+async def _advance_to_config_form(hass: HomeAssistant) -> str:
+    """Drive user (install-choice menu) → manual_install → config form; return flow_id."""
+    with _patch_mqtt_client():
+        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+        await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"next_step_id": "manual_install"}
+        )
+        result = await hass.config_entries.flow.async_configure(flow_id, user_input={})
+    assert result["type"] == "form"
+    assert result["step_id"] == "config"
+    return flow_id
+
+
+async def test_install_menu_shown_on_init(hass: HomeAssistant):
     with _patch_mqtt_client():
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "user"}
         )
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
     assert result["step_id"] == "user"
-    assert not result.get("errors")
+    assert set(result["menu_options"]) == {"provision_adb", "manual_install"}
 
 
 async def test_aborts_when_mqtt_not_configured(hass: HomeAssistant):
@@ -65,35 +79,26 @@ async def test_aborts_when_mqtt_not_configured(hass: HomeAssistant):
     assert result["reason"] == "mqtt_not_configured"
 
 
+async def test_manual_install_leads_to_config_form(hass: HomeAssistant):
+    flow_id = await _advance_to_config_form(hass)
+    assert flow_id  # reaching the config form is the assertion (made in the helper)
+
+
 async def test_invalid_device_id_shows_error(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check():
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check():
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input={**VALID_INPUT, CONF_DEVICE_ID: "Has Spaces!"},
+            flow_id, user_input={**VALID_INPUT, CONF_DEVICE_ID: "Has Spaces!"},
         )
     assert result["type"] == "form"
     assert result["errors"].get(CONF_DEVICE_ID) == "invalid_device_id"
 
 
-async def test_valid_submission_offers_provision_menu(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check(online=True):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+async def test_manual_install_valid_config_creates_entry(hass: HomeAssistant):
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check(online=True):
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input=VALID_INPUT,
-        )
-    assert result["type"] == "menu"
-    assert result["step_id"] == "provision"
-
-
-async def test_skip_provision_creates_entry(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check(online=True):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
-        await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
-        result = await hass.config_entries.flow.async_configure(
-            flow_id, user_input={"next_step_id": "finish"}
+            flow_id, user_input=VALID_INPUT,
         )
     assert result["type"] == "create_entry"
     assert result["data"][CONF_DEVICE_ID] == "living_room"
@@ -102,32 +107,31 @@ async def test_skip_provision_creates_entry(hass: HomeAssistant):
 
 
 async def test_apk_not_reachable_shows_error(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check(online=False):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check(online=False):
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input=VALID_INPUT,
+            flow_id, user_input=VALID_INPUT,
         )
     assert result["type"] == "form"
     assert result["errors"].get("base") == "apk_not_reachable"
 
 
 async def test_force_continue_bypasses_apk_error(hass: HomeAssistant):
+    flow_id = await _advance_to_config_form(hass)
+
     # Step 1: first submit → APK offline → form re-shown with _force_continue field
-    with _patch_mqtt_client(), _patch_apk_check(online=False):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+    with _patch_apk_check(online=False):
         result = await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
     assert result["type"] == "form"
     assert result["errors"].get("base") == "apk_not_reachable"
 
-    # Step 2: re-submit with _force_continue=True → provisioning menu (offline APK bypassed)
-    with _patch_mqtt_client(), _patch_apk_check(online=False):
+    # Step 2: re-submit with _force_continue=True → entry created (offline APK bypassed)
+    with _patch_apk_check(online=False):
         result = await hass.config_entries.flow.async_configure(
             flow_id, user_input={**VALID_INPUT, "_force_continue": True}
         )
-    assert result["type"] == "menu"
-    assert result["step_id"] == "provision"
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_DEVICE_ID] == "living_room"
 
 
 async def test_duplicate_device_id_aborts(hass: HomeAssistant):
@@ -138,11 +142,10 @@ async def test_duplicate_device_id_aborts(hass: HomeAssistant):
     )
     existing.add_to_hass(hass)
 
-    with _patch_mqtt_client(), _patch_apk_check(online=True):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check(online=True):
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input=VALID_INPUT,
+            flow_id, user_input=VALID_INPUT,
         )
     assert result["type"] == "abort"
     assert result["reason"] == "already_configured"
@@ -151,11 +154,10 @@ async def test_duplicate_device_id_aborts(hass: HomeAssistant):
 # ── ADB provisioning step ─────────────────────────────────────────────────────
 
 async def _advance_to_provision_form(hass: HomeAssistant) -> str:
-    """Drive the flow through user → provision menu → provision_adb form; return flow_id."""
-    with _patch_mqtt_client(), _patch_apk_check(online=True):
+    """Drive the flow through user menu → provision_adb form; return flow_id."""
+    with _patch_mqtt_client():
         await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
-        await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
         result = await hass.config_entries.flow.async_configure(
             flow_id, user_input={"next_step_id": "provision_adb"}
         )
@@ -164,7 +166,7 @@ async def _advance_to_provision_form(hass: HomeAssistant) -> str:
     return flow_id
 
 
-async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
+async def test_provision_adb_success_leads_to_config(hass: HomeAssistant):
     from custom_components.fire2mqtt.adb_provision import ProvisionResult
 
     flow_id = await _advance_to_provision_form(hass)
@@ -175,6 +177,13 @@ async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
         result = await hass.config_entries.flow.async_configure(
             flow_id, user_input={"fire_tv_ip": "10.0.0.50"}
         )
+    # Provisioning succeeded → config form, not an entry yet.
+    assert result["type"] == "form"
+    assert result["step_id"] == "config"
+
+    # Completing config then creates the entry.
+    with _patch_apk_check(online=True):
+        result = await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
     assert result["type"] == "create_entry"
     assert result["data"][CONF_DEVICE_ID] == "living_room"
 
@@ -236,24 +245,22 @@ async def test_options_flow_saves_selection(hass: HomeAssistant, config_entry_wi
 
 
 async def test_invalid_topic_prefix_shows_error(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check():
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check():
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input={**VALID_INPUT, CONF_TOPIC_PREFIX: "bad/#/prefix"},
+            flow_id, user_input={**VALID_INPUT, CONF_TOPIC_PREFIX: "bad/#/prefix"},
         )
     assert result["type"] == "form"
     assert result["errors"].get(CONF_TOPIC_PREFIX) == "invalid_topic_prefix"
 
 
 async def test_nested_topic_prefix_accepted(hass: HomeAssistant):
-    with _patch_mqtt_client(), _patch_apk_check(online=True):
-        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow_id = await _advance_to_config_form(hass)
+    with _patch_apk_check(online=True):
         result = await hass.config_entries.flow.async_configure(
-            list(hass.config_entries.flow.async_progress())[0]["flow_id"],
-            user_input={**VALID_INPUT, CONF_TOPIC_PREFIX: "home/media/fire2mqtt"},
+            flow_id, user_input={**VALID_INPUT, CONF_TOPIC_PREFIX: "home/media/fire2mqtt"},
         )
-    assert result["type"] == "menu"
+    assert result["type"] == "create_entry"
 
 
 # ── reconfigure flow ──────────────────────────────────────────────────────────

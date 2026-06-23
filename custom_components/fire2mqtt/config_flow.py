@@ -56,12 +56,38 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._entry_data: dict | None = None
+        self._provision_note: str | None = None
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
+        """First step: decide how the APK gets onto the Fire TV before collecting config.
 
+        The app must be installed (and, in the manual case, configured on-device) before
+        Home Assistant can talk to it, so we offer the install choice up front and only
+        gather MQTT/device details afterwards in :meth:`async_step_config`.
+        """
         if not await mqtt.async_wait_for_mqtt_client(self.hass):
             return self.async_abort(reason="mqtt_not_configured")
+
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["provision_adb", "manual_install"],
+        )
+
+    async def async_step_manual_install(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Acknowledge a manual sideload, then move on to collecting config."""
+        if user_input is not None:
+            return await self.async_step_config()
+
+        return self.async_show_form(
+            step_id="manual_install",
+            data_schema=vol.Schema({}),
+        )
+
+    async def async_step_config(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Collect device name/ID/topic prefix and create the entry (post-install)."""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             device_id = user_input[CONF_DEVICE_ID]
@@ -88,7 +114,7 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_DEVICE_ID: device_id,
                         CONF_TOPIC_PREFIX: prefix,
                     }
-                    return await self.async_step_provision()
+                    return self._create_entry(self._provision_note)
 
         schema = vol.Schema({
             vol.Required("device_name", default="Living Room Fire TV"): TextSelector(
@@ -108,7 +134,7 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             })
 
         return self.async_show_form(
-            step_id="user",
+            step_id="config",
             data_schema=schema,
             errors=errors,
             description_placeholders={
@@ -165,20 +191,10 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
         finally:
             unsub()
 
-    async def async_step_provision(self, user_input: dict | None = None) -> ConfigFlowResult:
-        """Offer optional one-time ADB provisioning of the Fire TV, or finish."""
-        return self.async_show_menu(
-            step_id="provision",
-            menu_options=["provision_adb", "finish"],
-        )
-
-    async def async_step_finish(self, user_input: dict | None = None) -> ConfigFlowResult:
-        return self._create_entry()
-
     async def async_step_provision_adb(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
-        """Install the APK + grant WRITE_SECURE_SETTINGS over ADB, then create the entry."""
+        """Install the APK + grant WRITE_SECURE_SETTINGS over ADB, then collect config."""
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
 
@@ -195,10 +211,11 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 description_placeholders["detail"] = str(err)
             else:
                 summary = "Installed" if result.installed else "Already installed"
-                return self._create_entry(
+                self._provision_note = (
                     f"{summary}; WRITE_SECURE_SETTINGS granted; app launched to self-enable "
                     "accessibility + notification access."
                 )
+                return await self.async_step_config()
 
         return self.async_show_form(
             step_id="provision_adb",
