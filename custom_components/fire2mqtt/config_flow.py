@@ -196,7 +196,9 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Install the APK + grant WRITE_SECURE_SETTINGS over ADB, then collect config."""
         errors: dict[str, str] = {}
-        description_placeholders: dict[str, str] = {}
+        # `detail` is always supplied so the form's {detail} placeholder renders on the
+        # first (error-free) pass too; it's filled in only when provisioning fails.
+        description_placeholders: dict[str, str] = {"detail": ""}
 
         if user_input is not None:
             # Imported here so the adb_shell dependency only loads when provisioning is used.
