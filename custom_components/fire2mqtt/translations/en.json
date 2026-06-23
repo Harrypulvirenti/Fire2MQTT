@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Install the Fire2MQTT app on your Fire TV",
-        "description": "Fire2MQTT needs its companion app running on the Fire TV before Home Assistant can talk to it. Choose how to install it. Either way, you'll enter the device details on the next screen.",
+        "description": "Fire2MQTT needs an MQTT broker (e.g. the Mosquitto broker add-on) and its companion app running on the Fire TV before Home Assistant can talk to it. Choose how to install the app — installing automatically over ADB also pushes your broker settings to the app, so you won't have to type them with a remote.",
         "menu_options": {
           "provision_adb": "Install automatically over ADB",
           "manual_install": "I'll install it myself"
@@ -11,7 +11,7 @@
       },
       "manual_install": {
         "title": "Sideload the app yourself",
-        "description": "Install the Fire2MQTT APK on your Fire TV, open it, and configure your MQTT broker plus a **device ID** in the app.\n\nQuick sideload over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nThe device ID you set in the app must match the one you enter on the next screen. Submit when the app is installed and running.",
+        "description": "Install the Fire2MQTT APK on your Fire TV, open it, and in the app enter your **MQTT broker** address, an **existing broker username/password**, and a **device ID**.\n\nQuick sideload over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nThe device ID you set in the app must match the one you enter on the next screen. Submit when the app is installed and running.",
         "data": {}
       },
       "config": {
@@ -32,10 +32,22 @@
         }
       },
       "provision_adb": {
-        "title": "Provision over ADB",
-        "description": "First enable **ADB Debugging** on the Fire TV (Settings > My Fire TV > Developer Options), then enter its IP address. The first time you connect, accept the authorization dialog that appears on the TV, then submit again.\n\n{detail}",
+        "title": "Install & configure over ADB",
+        "description": "First enable **ADB Debugging** on the Fire TV (Settings > My Fire TV > Developer Options). The first time you connect, accept the authorization dialog on the TV, then submit again.\n\nThese broker settings are sent to the app so you never type them on the TV. Use an **existing** broker username/password — Home Assistant can't create accounts on your broker. Default port is 1883 (8883 with TLS).\n\n{detail}",
         "data": {
-          "fire_tv_ip": "Fire TV IP address"
+          "fire_tv_ip": "Fire TV IP address",
+          "device_name": "Device name",
+          "device_id": "Device ID (slug, e.g. living_room_fire_tv)",
+          "broker_host": "MQTT broker address",
+          "broker_port": "MQTT broker port",
+          "broker_username": "Broker username (optional)",
+          "broker_password": "Broker password (optional)",
+          "use_tls": "Use TLS (mqtts)",
+          "topic_prefix": "MQTT topic prefix"
+        },
+        "data_description": {
+          "broker_host": "IP or hostname of your Mosquitto/MQTT broker — the same broker Home Assistant's MQTT integration uses.",
+          "use_tls": "Connect over TLS. Required for public/cloud brokers; uses the system trust store (self-signed certificates aren't supported yet)."
         }
       }
     },

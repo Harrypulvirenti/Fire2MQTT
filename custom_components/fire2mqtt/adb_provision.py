@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shlex
 import tempfile
 from dataclasses import dataclass, field
 
@@ -26,6 +27,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     ADB_KEY_FILENAME,
     ADB_PORT,
+    EXTRA_BROKER_HOST,
+    EXTRA_BROKER_PASSWORD,
+    EXTRA_BROKER_PORT,
+    EXTRA_BROKER_USERNAME,
+    EXTRA_DEVICE_ID,
+    EXTRA_TOPIC_PREFIX,
+    EXTRA_USE_TLS,
     FIRE2MQTT_LAUNCH_COMPONENT,
     FIRE2MQTT_PACKAGE,
     GITHUB_LATEST_RELEASE_URL,
@@ -46,6 +54,19 @@ class ProvisionError(Exception):
 
 
 @dataclass
+class BrokerConfig:
+    """Broker settings pushed to the app at launch so the user never types them on the TV."""
+
+    host: str
+    port: int
+    username: str
+    password: str
+    device_id: str
+    topic_prefix: str
+    use_tls: bool
+
+
+@dataclass
 class ProvisionResult:
     installed: bool = False
     write_secure_settings: bool = False
@@ -53,8 +74,35 @@ class ProvisionResult:
     notes: list[str] = field(default_factory=list)
 
 
-async def async_provision(hass: HomeAssistant, host: str, port: int = ADB_PORT) -> ProvisionResult:
-    """Install + grant + launch over ADB. Raises :class:`ProvisionError` on failure."""
+def _build_launch_cmd(component: str, config: BrokerConfig) -> str:
+    """Build the ``am start`` command that launches the app with broker config as extras.
+
+    Every value is ``shlex.quote``d because passwords may contain spaces or shell
+    metacharacters. All extras are passed as strings (``--es``); the app parses them
+    (see the APK's ProvisioningExtras). Pure + side-effect free so it's unit-testable.
+    """
+    extras = {
+        EXTRA_BROKER_HOST: config.host,
+        EXTRA_BROKER_PORT: str(config.port),
+        EXTRA_BROKER_USERNAME: config.username,
+        EXTRA_BROKER_PASSWORD: config.password,
+        EXTRA_TOPIC_PREFIX: config.topic_prefix,
+        EXTRA_DEVICE_ID: config.device_id,
+        EXTRA_USE_TLS: "true" if config.use_tls else "false",
+    }
+    parts = ["am", "start", "-n", component]
+    for key, value in extras.items():
+        parts += ["--es", key, shlex.quote(value)]
+    return " ".join(parts)
+
+
+async def async_provision(
+    hass: HomeAssistant,
+    host: str,
+    config: BrokerConfig,
+    port: int = ADB_PORT,
+) -> ProvisionResult:
+    """Install + grant + launch (with broker config) over ADB. Raises :class:`ProvisionError`."""
     # Imported lazily so the dependency is only required when provisioning is actually used.
     try:
         from adb_shell.adb_device_async import AdbDeviceTcpAsync
@@ -100,8 +148,9 @@ async def async_provision(hass: HomeAssistant, host: str, port: int = ADB_PORT) 
             # Some Fire OS builds removed WRITE_SECURE_SETTINGS entirely.
             raise ProvisionError("grant_failed", "WRITE_SECURE_SETTINGS not held after grant")
 
-        # Launch so SecureSettingsManager.ensureAllEnabled() runs and self-grants the rest.
-        await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
+        # Launch with the broker config as intent extras so the app stores it without the
+        # user typing anything on the TV; this also runs SecureSettingsManager.ensureAllEnabled().
+        await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, config))
         result.launched = True
         return result
     finally:

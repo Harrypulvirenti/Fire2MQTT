@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.data.PermissionChecker
+import dev.harrypulvirenti.fire2mqtt.data.ProvisioningConfig
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
 import dev.harrypulvirenti.fire2mqtt.mqtt.ConnectionTester
 import dev.harrypulvirenti.fire2mqtt.mqtt.TestResult
@@ -47,6 +48,7 @@ class SetupViewModel(
                 port        = s.port,
                 username    = s.username,
                 password    = s.password,
+                useTls      = s.useTls,
                 deviceId    = s.deviceId,
                 topicPrefix = s.topicPrefix,
                 connection  = ConnState.Disconnected,
@@ -122,6 +124,43 @@ class SetupViewModel(
     fun updateTopicPrefix(value: String) {
         viewModelScope.launch { repository.setTopicPrefix(value) }
         _state.value = _state.value.copy(topicPrefix = value)
+    }
+
+    fun updateUseTls(value: Boolean) {
+        viewModelScope.launch { repository.setUseTls(value) }
+        _state.value = _state.value.copy(
+            useTls = value,
+            // Toggling transport invalidates any prior probe result.
+            connection = ConnState.Disconnected,
+            connectionMessage = if (_state.value.host.isBlank())
+                TextValue.TextResource(R.string.msg_no_broker)
+            else TextValue.TextResource(R.string.msg_not_tested),
+        )
+    }
+
+    /**
+     * Apply broker settings pushed by HA's ADB provisioning (parsed in [MainActivity]).
+     * Persists the provided fields, then reflects them in the UI so the dashboard opens
+     * pre-filled with no remote typing. See [dev.harrypulvirenti.fire2mqtt.data.ProvisioningConfig].
+     */
+    fun applyProvisioning(config: ProvisioningConfig) {
+        viewModelScope.launch {
+            repository.applyProvisioning(config)
+            val s = repository.load()
+            _state.value = _state.value.copy(
+                host        = s.host,
+                port        = s.port,
+                username    = s.username,
+                password    = s.password,
+                useTls      = s.useTls,
+                deviceId    = s.deviceId,
+                topicPrefix = s.topicPrefix,
+                connection  = ConnState.Disconnected,
+                connectionMessage = if (s.host.isBlank())
+                    TextValue.TextResource(R.string.msg_no_broker)
+                else TextValue.TextResource(R.string.msg_not_tested),
+            )
+        }
     }
 
     // -------------------------------------------------------------------------

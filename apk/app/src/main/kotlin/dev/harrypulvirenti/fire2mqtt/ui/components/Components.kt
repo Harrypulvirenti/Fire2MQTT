@@ -499,6 +499,61 @@ private fun StepBtn(glyph: String, active: Boolean, onClick: () -> Unit) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+ * TLS toggle — SELECT flips mqtts on/off. Mirrors PortStepper's focus styling.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+@Composable
+fun TlsToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val c = Fire2MqttTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val focusScale by animateTvFocusScale(focused)
+
+    Row(
+        modifier
+            .fillMaxWidth()
+            .onPreviewKeyEvent { e ->
+                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (e.key) {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { onCheckedChange(!checked); true }
+                    else -> false
+                }
+            }
+            .tvFocus(focused, { focusScale }, fieldShape, c.surface2, c.line, c.ember,
+                Fire2MqttTheme.focus.ringWidth)
+            .clickable(interaction, indication = null, role = Role.Switch) { onCheckedChange(!checked) }
+            .padding(horizontal = 22.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.field_use_tls), color = c.text,
+                style = Fire2MqttTheme.type.label)
+            Spacer(Modifier.height(3.dp))
+            Text(stringResource(R.string.field_use_tls_hint).uppercase(), color = c.text4,
+                style = Fire2MqttTheme.type.hint)
+        }
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(11.dp))
+                .background(
+                    if (checked) c.green.copy(alpha = .18f) else Color(0x40000000),
+                    RoundedCornerShape(11.dp),
+                )
+                .border(1.dp, if (checked) c.green.copy(alpha = .5f) else c.line2,
+                    RoundedCornerShape(11.dp))
+                .padding(horizontal = 18.dp, vertical = 9.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (checked) stringResource(R.string.toggle_on) else stringResource(R.string.toggle_off),
+                color = if (checked) c.green else c.text3,
+                style = Fire2MqttTheme.type.label,
+            )
+        }
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
  * Topic preview + deferred QR card
  * ──────────────────────────────────────────────────────────────────────── */
 

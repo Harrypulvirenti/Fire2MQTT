@@ -26,6 +26,7 @@ data class MqttConfig(
     val port: Int = 1883,
     val username: String? = null,
     val password: String? = null,
+    val useTls: Boolean = false,
     val clientId: String = "fire2mqtt_${UUID.randomUUID()}",
     val willTopic: String,
     val willPayload: String = "offline",
@@ -74,6 +75,12 @@ class Fire2MqttClient(@InjectedParam private val config: MqttConfig) {
                         .retain(true)
                         .build()
                 )
+
+            // TLS uses the JVM default trust store (publicly-trusted certs). Self-signed /
+            // custom-CA brokers aren't supported yet — there's no CA-upload path.
+            if (config.useTls) {
+                builder.sslWithDefaultConfig()
+            }
 
             if (config.username != null) {
                 val auth = builder.simpleAuth().username(config.username)

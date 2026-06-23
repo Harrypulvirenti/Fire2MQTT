@@ -46,13 +46,22 @@ class ConnectionTester {
 
         if (host.isBlank()) return@withContext TestResult.NoHost
 
-        val resolvedHost = BrokerHostValidator.resolveToPrivateAddress(host)
-            ?: return@withContext TestResult.BadHost(host)
+        // Cleartext is LAN-only (so credentials can't leak to a public host); TLS encrypts
+        // the connection, so any host is allowed and the original hostname is kept for cert
+        // verification. Mirrors Fire2MqttService.startPipeline.
+        val targetHost = if (settings.useTls) {
+            host
+        } else {
+            BrokerHostValidator.resolveToPrivateAddress(host)
+                ?: return@withContext TestResult.BadHost(host)
+        }
 
         val builder = Mqtt5Client.builder()
             .identifier("fire2mqtt_probe_${UUID.randomUUID()}")
-            .serverHost(resolvedHost)
+            .serverHost(targetHost)
             .serverPort(port)
+
+        if (settings.useTls) builder.sslWithDefaultConfig()
 
         if (username.isNotBlank()) {
             val auth = builder.simpleAuth().username(username)

@@ -106,24 +106,32 @@ class Fire2MqttService : Service() {
             return
         }
 
-        // Resolve and pin: hand HiveMQ a validated IP literal so its auto-reconnect
-        // can't drift to a different (potentially public) DNS answer later.
-        val resolvedHost = BrokerHostValidator.resolveToPrivateAddress(host)
-        if (resolvedHost == null) {
-            logger.e {
-                "Broker host '$host' did not resolve to a private/LAN address (or " +
-                    "had a public candidate among its answers) — refusing to connect " +
-                    "over cleartext. Configure an RFC1918 IP, loopback, or link-local broker."
+        // Cleartext: resolve and pin to a validated private IP literal so HiveMQ's
+        // auto-reconnect can't drift to a different (potentially public) DNS answer and leak
+        // credentials. TLS: keep the original hostname (encrypted + needed for cert hostname
+        // verification) and allow any host. Mirrors ConnectionTester.
+        val targetHost = if (s.useTls) {
+            host
+        } else {
+            val resolved = BrokerHostValidator.resolveToPrivateAddress(host)
+            if (resolved == null) {
+                logger.e {
+                    "Broker host '$host' did not resolve to a private/LAN address (or " +
+                        "had a public candidate among its answers) — refusing to connect " +
+                        "over cleartext. Use TLS, or configure an RFC1918/loopback/link-local broker."
+                }
+                stopSelf()
+                return
             }
-            stopSelf()
-            return
+            resolved
         }
 
         val config = MqttConfig(
-            host = resolvedHost,
+            host = targetHost,
             port = port,
             username = username,
             password = password,
+            useTls = s.useTls,
             willTopic = TopicSchema.status(prefix, deviceId),
             willPayload = "offline",
             prefix = prefix,

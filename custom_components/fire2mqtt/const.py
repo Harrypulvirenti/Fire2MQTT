@@ -12,13 +12,34 @@ CONF_ENABLED_APPS = "enabled_apps"
 CONF_IDLE_TIMEOUT = "idle_timeout"
 CONF_STATE_DETECTION_RULES_OVERRIDE = "state_detection_rules_override"
 CONF_FIRE_TV_IP = "fire_tv_ip"
+# Broker settings collected during ADB provisioning, pushed to the app so the user
+# never types credentials on the Fire TV remote.
+CONF_BROKER_HOST = "broker_host"
+CONF_BROKER_PORT = "broker_port"
+CONF_BROKER_USERNAME = "broker_username"
+CONF_BROKER_PASSWORD = "broker_password"
+CONF_USE_TLS = "use_tls"
+
+DEFAULT_BROKER_PORT = 1883
+DEFAULT_BROKER_PORT_TLS = 8883
 
 # ADB provisioning (optional, one-time): the integration installs the APK, grants
 # WRITE_SECURE_SETTINGS, and launches the app so it self-enables its other permissions.
 ADB_PORT = 5555
 FIRE2MQTT_PACKAGE = "dev.harrypulvirenti.fire2mqtt"
-FIRE2MQTT_LAUNCH_COMPONENT = f"{FIRE2MQTT_PACKAGE}/.ui.SettingsActivity"
+FIRE2MQTT_LAUNCH_COMPONENT = f"{FIRE2MQTT_PACKAGE}/.ui.MainActivity"
 ADB_KEY_FILENAME = "fire2mqtt_adbkey"
+
+# Launch-intent extra keys — the wire contract for pushing broker config to the app
+# (see the APK's data/ProvisioningExtras.kt). All values are sent as strings via
+# `am start --es`; the app parses them. Keep both sides in sync.
+EXTRA_BROKER_HOST = "broker_host"
+EXTRA_BROKER_PORT = "broker_port"
+EXTRA_BROKER_USERNAME = "broker_username"
+EXTRA_BROKER_PASSWORD = "broker_password"
+EXTRA_TOPIC_PREFIX = "topic_prefix"
+EXTRA_DEVICE_ID = "device_id"
+EXTRA_USE_TLS = "use_tls"
 GITHUB_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/Harrypulvirenti/Fire2MQTT/releases/latest"
 )
