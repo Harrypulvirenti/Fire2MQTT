@@ -86,3 +86,14 @@ async def test_volume_level_sensor_percentage(hass: HomeAssistant, online, mock_
 async def test_sensors_unavailable_when_offline(hass: HomeAssistant, setup_integration):
     for entity_id in (CURRENT_APP, MEDIA_TITLE, VOLUME_LEVEL):
         assert hass.states.get(entity_id).state == "unavailable"
+
+
+IP_ADDRESS = "sensor.fire_tv_test_device_ip_address"
+
+
+async def test_ip_sensor_registered_as_diagnostic(hass: HomeAssistant, setup_integration):
+    registry = er.async_get(hass)
+    entry = registry.async_get(IP_ADDRESS)
+    assert entry is not None
+    assert entry.entity_category == er.EntityCategory.DIAGNOSTIC
+    assert entry.disabled_by is not None  # disabled by default

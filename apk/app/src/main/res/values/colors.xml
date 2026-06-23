@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- matches bg-letter in the design; the pre-Compose window background -->
+    <color name="window_background">#050403</color>
+</resources>

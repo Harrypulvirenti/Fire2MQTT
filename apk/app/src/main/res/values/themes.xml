@@ -1,4 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Fire2MQTT" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <!--
+      Compose owns all styling. The Android theme only needs to be a no-action-bar
+      shell with a dark window background so there is no white flash before the
+      first Compose frame on the Fire TV launcher.
+    -->
+    <style name="Theme.Fire2MQTT" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@color/window_background</item>
+        <item name="android:navigationBarColor">@color/window_background</item>
+    </style>
+
+    <!--
+      Launch theme (AndroidX SplashScreen). Shows the app icon on the same near-black
+      background the instant the icon is tapped, then hands off to Theme.Fire2MQTT once
+      the first Compose frame is ready (postSplashScreenTheme). Replaces the bare black
+      window that used to show during cold start.
+    -->
+    <style name="Theme.Fire2MQTT.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Fire2MQTT</item>
+    </style>
 </resources>

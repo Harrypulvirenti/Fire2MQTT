@@ -32,7 +32,15 @@ def make_msg(payload: str | dict) -> MagicMock:
 
 @pytest.fixture
 def coordinator(hass):
-    return Fire2MqttCoordinator(hass, topic_prefix="fire2mqtt", device_id="test_device")
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(
+        domain="fire2mqtt",
+        title="Fire TV test_device",
+        data={"device_id": "test_device", "topic_prefix": "fire2mqtt"},
+    )
+    entry.add_to_hass(hass)
+    return Fire2MqttCoordinator(hass, entry, topic_prefix="fire2mqtt", device_id="test_device")
 
 
 # ---------------------------------------------------------------------------
@@ -318,3 +326,26 @@ class TestMqttBus:
         topic, raw = mock_mqtt_publish.published[0]
         assert topic == "fire2mqtt/dev1/cmd/launch"
         assert raw == "com.netflix.ninja"
+
+
+# ---------------------------------------------------------------------------
+# String length hardening
+# ---------------------------------------------------------------------------
+
+class TestStringTruncation:
+    def test_oversized_title_is_truncated(self):
+        from custom_components.fire2mqtt.const import MAX_PAYLOAD_STR_LENGTH
+
+        result = PlaybackPayload.from_raw({"title": "x" * 10_000})
+        assert len(result["title"]) == MAX_PAYLOAD_STR_LENGTH
+
+    def test_normal_title_untouched(self):
+        result = PlaybackPayload.from_raw({"title": "Demon Slayer"})
+        assert result["title"] == "Demon Slayer"
+
+    def test_oversized_app_name_is_truncated(self):
+        from custom_components.fire2mqtt.const import MAX_PAYLOAD_STR_LENGTH
+
+        result = AppPayload.from_raw({"package": "p" * 600, "name": "n" * 600})
+        assert len(result["package"]) == MAX_PAYLOAD_STR_LENGTH
+        assert len(result["name"]) == MAX_PAYLOAD_STR_LENGTH

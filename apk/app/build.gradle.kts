@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -38,12 +40,18 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
+        compose = true
     }
 
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
     }
+}
+
+// Verify the Koin graph at compile time (missing definitions fail the build).
+ksp {
+    arg("KOIN_CONFIG_CHECK", "true")
+    arg("KOIN_DEFAULT_MODULE", "true")
 }
 
 dependencies {
@@ -59,12 +67,33 @@ dependencies {
     // Logging
     implementation(libs.kermit)
 
+    // Dependency injection — Koin (+ annotations via KSP)
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.annotations)
+    ksp(libs.koin.ksp.compiler)
+
     // AndroidX
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.preference.ktx)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.service)
+
+    // Jetpack Compose (BOM-aligned) — setup dashboard UI
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
+    // icons-core only (Check, Notifications); the one extended icon we need
+    // (Accessibility) is inlined in ui/components — extended is ~12MB of methods.
+    implementation(libs.compose.material.icons.core)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Testing
     testImplementation(libs.junit.jupiter)

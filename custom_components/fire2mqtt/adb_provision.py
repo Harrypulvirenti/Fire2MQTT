@@ -14,8 +14,10 @@ step, so a normal MQTT-only install never loads ``adb_shell``.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import tempfile
 from dataclasses import dataclass, field
 
 from homeassistant.core import HomeAssistant
@@ -79,11 +81,14 @@ async def async_provision(hass: HomeAssistant, host: str, port: int = ADB_PORT) 
             result.notes.append("APK already installed")
         else:
             apk = await _async_download_apk(hass)
-            await device.push(apk, _REMOTE_APK_PATH)
-            install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
-            if "Success" not in install_out:
-                raise ProvisionError("install_failed", install_out.strip())
-            await device.shell(f"rm -f {_REMOTE_APK_PATH}")
+            try:
+                await device.push(apk, _REMOTE_APK_PATH)
+                install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
+                if "Success" not in install_out:
+                    raise ProvisionError("install_failed", install_out.strip())
+                await device.shell(f"rm -f {_REMOTE_APK_PATH}")
+            finally:
+                await hass.async_add_executor_job(_remove_quietly, apk)
             result.installed = True
 
         # The one unavoidable grant. The app does the rest on launch.
@@ -142,25 +147,19 @@ async def _async_download_apk(hass: HomeAssistant) -> str:
     except Exception as err:  # noqa: BLE001 - network errors surface as one reason
         raise ProvisionError("download_failed", str(err)) from err
 
-    asset_url = next(
+    apk_asset = next(
         (
-            asset["browser_download_url"]
+            asset
             for asset in release.get("assets", [])
             if asset.get("name", "").endswith(".apk")
         ),
         None,
     )
-    if not asset_url:
+    if not apk_asset:
         raise ProvisionError("no_apk_asset", "latest release has no .apk asset")
 
-    dest = hass.config.path("fire2mqtt_download.apk")
-
-    def _write(data: bytes) -> None:
-        with open(dest, "wb") as fh:
-            fh.write(data)
-
     try:
-        async with session.get(asset_url) as resp:
+        async with session.get(apk_asset["browser_download_url"]) as resp:
             if resp.status != 200:
                 raise ProvisionError("download_failed", f"APK download HTTP {resp.status}")
             data = await resp.read()
@@ -169,5 +168,32 @@ async def _async_download_apk(hass: HomeAssistant) -> str:
     except Exception as err:  # noqa: BLE001
         raise ProvisionError("download_failed", str(err)) from err
 
-    await hass.async_add_executor_job(_write, data)
-    return dest
+    # GitHub publishes a sha256 digest per asset; verify it when present so a
+    # corrupted or tampered download is never pushed to the device.
+    expected_digest = apk_asset.get("digest", "")
+    if expected_digest.startswith("sha256:"):
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != expected_digest.removeprefix("sha256:"):
+            raise ProvisionError(
+                "download_failed",
+                f"APK sha256 mismatch: expected {expected_digest}, got sha256:{actual}",
+            )
+    else:
+        _LOGGER.warning(
+            "Fire2MQTT: release asset has no sha256 digest; skipping integrity check"
+        )
+
+    def _write() -> str:
+        fd, dest = tempfile.mkstemp(prefix="fire2mqtt_", suffix=".apk")
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        return dest
+
+    return await hass.async_add_executor_job(_write)
+
+
+def _remove_quietly(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass

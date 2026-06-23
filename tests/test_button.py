@@ -29,3 +29,32 @@ async def test_netflix_button_press_publishes_package(hass: HomeAssistant, onlin
 async def test_jellyfin_button_press_publishes_package(hass: HomeAssistant, online, mock_mqtt_publish):
     await hass.services.async_call("button", "press", {"entity_id": JELLYFIN_BUTTON}, blocking=True)
     assert (TOPIC_CMD_LAUNCH, "org.jellyfin.androidtv") in mock_mqtt_publish.published
+
+
+async def test_stale_buttons_removed_when_app_disabled(hass: HomeAssistant, mock_mqtt_subscribe, mock_mqtt_publish):
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(
+        domain="fire2mqtt",
+        title="Fire TV test_device",
+        data={"device_id": "test_device", "topic_prefix": "fire2mqtt"},
+        options={"enabled_apps": ["jellyfin"]},
+    )
+    entry.add_to_hass(hass)
+
+    # Simulate a button left over from when netflix was enabled.
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "button", "fire2mqtt", "fire2mqtt_test_device_launch_netflix",
+        config_entry=entry,
+    )
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get_entity_id("button", "fire2mqtt", "fire2mqtt_test_device_launch_netflix") is None
+    assert registry.async_get_entity_id("button", "fire2mqtt", "fire2mqtt_test_device_launch_jellyfin") is not None
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()

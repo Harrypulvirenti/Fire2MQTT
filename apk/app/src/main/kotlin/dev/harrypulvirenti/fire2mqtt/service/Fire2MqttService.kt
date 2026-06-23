@@ -3,7 +3,6 @@ package dev.harrypulvirenti.fire2mqtt.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
-import android.content.ComponentName
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.os.IBinder
@@ -12,7 +11,6 @@ import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.Fire2MqttApp
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
-import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
@@ -25,11 +23,17 @@ import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
 import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
-import dev.harrypulvirenti.fire2mqtt.ui.SettingsActivity
+import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
+import dev.harrypulvirenti.fire2mqtt.ui.MainActivity
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.koin.android.ext.android.get
+import org.koin.android.ext.android.inject
+import org.koin.core.parameter.parametersOf
 import java.net.NetworkInterface
 
 private val logger = Logger.withTag("Fire2MQTT/Service")
@@ -38,14 +42,30 @@ private const val NOTIFICATION_ID = 1
 class Fire2MqttService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val settings: SettingsRepository by inject()
     private var mqttClient: Fire2MqttClient? = null
     private var commandRouter: CommandRouter? = null
     private var pipelineJob: Job? = null
+
+    companion object {
+        // internal (not private) so SetupViewModelTest can drive the flow;
+        // production writes happen only in onStartCommand/onDestroy below.
+        internal val _running = MutableStateFlow(false)
+
+        /**
+         * Whether the foreground service is started, as an observable stream.
+         * SetupViewModel collects this so the dashboard reflects reality even when
+         * the service stops itself (blank host, fatal MQTT error) — no optimistic
+         * UI flags.
+         */
+        val running: StateFlow<Boolean> = _running
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
+        _running.value = true
         // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
         // access so the watchers (key injection, media sessions, foreground app) work.
         SecureSettingsManager.ensureAllEnabled(this)
@@ -64,6 +84,7 @@ class Fire2MqttService : Service() {
     }
 
     override fun onDestroy() {
+        _running.value = false
         scope.cancel()
         pipelineJob = null
         mqttClient?.disconnect()
@@ -71,13 +92,13 @@ class Fire2MqttService : Service() {
     }
 
     private suspend fun startPipeline() {
-        val prefs = SettingsActivity.getPrefs(this)
-        val prefix = prefs.getString("topic_prefix", "fire2mqtt") ?: "fire2mqtt"
-        val deviceId = prefs.getString("device_id", "fire_tv") ?: "fire_tv"
-        val host = prefs.getString("broker_host", "") ?: ""
-        val port = prefs.getString("broker_port", "1883")?.toIntOrNull() ?: 1883
-        val username = prefs.getString("broker_username", null)
-        val password = prefs.getString("broker_password", null)
+        val s = settings.load()
+        val host = s.host
+        val port = s.port
+        val username = s.username.ifBlank { null }
+        val password = s.password.ifBlank { null }
+        val deviceId = s.deviceId
+        val prefix = s.topicPrefix
 
         if (host.isBlank()) {
             logger.e { "Broker host not configured — stopping service" }
@@ -109,7 +130,7 @@ class Fire2MqttService : Service() {
             deviceId = deviceId,
         )
 
-        val client = Fire2MqttClient(config)
+        val client = get<Fire2MqttClient> { parametersOf(config) }
         mqttClient = client
 
         // Pre-seed the retained-state cache before connecting. These publishes
@@ -148,11 +169,8 @@ class Fire2MqttService : Service() {
             backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
         }
 
-        commandRouter = CommandRouter(this, prefix, deviceId)
-        val mediaWatcher = MediaSessionWatcher(
-            this,
-            ComponentName(this, MediaNotificationListener::class.java)
-        )
+        commandRouter = get<CommandRouter> { parametersOf(prefix, deviceId) }
+        val mediaWatcher = get<MediaSessionWatcher>()
 
         // All long-lived collectors run as children of pipelineJob via coroutineScope.
         // coroutineScope suspends until every child completes; the flows are infinite
@@ -181,7 +199,7 @@ class Fire2MqttService : Service() {
 
             // Foreground app
             launch {
-                ForegroundAppWatcher(this@Fire2MqttService).foregroundAppFlow()
+                this@Fire2MqttService.get<ForegroundAppWatcher>().foregroundAppFlow()
                     .catch { logger.e(it) { "ForegroundApp error: ${it.message}" } }
                     .collect { event ->
                         val appJson = Json.encodeToString(
@@ -193,7 +211,7 @@ class Fire2MqttService : Service() {
 
             // Screen state
             launch {
-                ScreenWatcher(this@Fire2MqttService).screenStateFlow()
+                this@Fire2MqttService.get<ScreenWatcher>().screenStateFlow()
                     .catch { logger.e(it) { "Screen error: ${it.message}" } }
                     .collect { on ->
                         val json = Json.encodeToString(ScreenPayload(on = on))
@@ -203,7 +221,7 @@ class Fire2MqttService : Service() {
 
             // Volume
             launch {
-                VolumeWatcher(this@Fire2MqttService).volumeFlow()
+                this@Fire2MqttService.get<VolumeWatcher>().volumeFlow()
                     .catch { logger.e(it) { "Volume error: ${it.message}" } }
                     .collect { vol ->
                         client.publish(
@@ -244,7 +262,7 @@ class Fire2MqttService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val intent = Intent(this, SettingsActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
         val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, Fire2MqttApp.SERVICE_CHANNEL_ID)
             .setContentTitle("Fire2MQTT")
