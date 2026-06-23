@@ -42,6 +42,7 @@ import dev.harrypulvirenti.fire2mqtt.ui.components.PermissionRow
 import dev.harrypulvirenti.fire2mqtt.ui.components.PortStepper
 import dev.harrypulvirenti.fire2mqtt.ui.components.PrimaryButton
 import dev.harrypulvirenti.fire2mqtt.ui.components.SecondaryButton
+import dev.harrypulvirenti.fire2mqtt.ui.components.TlsToggle
 import dev.harrypulvirenti.fire2mqtt.ui.components.TopicPreview
 import dev.harrypulvirenti.fire2mqtt.ui.components.TvDesignScale
 import dev.harrypulvirenti.fire2mqtt.ui.theme.Fire2MqttTheme
@@ -53,6 +54,7 @@ fun SetupDashboard(
     onPortChange: (Int) -> Unit = {},
     onUsernameChange: (String) -> Unit = {},
     onPasswordChange: (String) -> Unit = {},
+    onUseTlsChange: (Boolean) -> Unit = {},
     onDeviceIdChange: (String) -> Unit = {},
     onTopicPrefixChange: (String) -> Unit = {},
     onTestConnection: () -> Unit = {},
@@ -106,6 +108,7 @@ fun SetupDashboard(
                                 CompactField(stringResource(R.string.field_password), state.password,
                                     onPasswordChange, Modifier.weight(1f), optional = true, password = true)
                             }
+                            TlsToggle(state.useTls, onUseTlsChange)
                         }
                     }
                     Card {

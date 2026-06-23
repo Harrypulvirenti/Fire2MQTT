@@ -35,6 +35,7 @@ data class SetupUiState(
     val port: Int = 1883,
     val username: String = "",
     val password: String = "",
+    val useTls: Boolean = false,
     val deviceId: String = "fire_tv",
     val topicPrefix: String = "fire2mqtt",
     val connection: ConnState = ConnState.Disconnected,

@@ -9,10 +9,16 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.fire2mqtt.config_flow import Fire2MqttConfigFlow
 from custom_components.fire2mqtt.const import (
+    CONF_BROKER_HOST,
+    CONF_BROKER_PASSWORD,
+    CONF_BROKER_PORT,
+    CONF_BROKER_USERNAME,
     CONF_DEVICE_ID,
     CONF_ENABLED_APPS,
+    CONF_FIRE_TV_IP,
     CONF_IDLE_TIMEOUT,
     CONF_TOPIC_PREFIX,
+    CONF_USE_TLS,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_TOPIC_PREFIX,
     DOMAIN,
@@ -40,6 +46,19 @@ def _patch_apk_check(online: bool = True):
 VALID_INPUT = {
     "device_name": "Living Room",
     CONF_DEVICE_ID: "living_room",
+    CONF_TOPIC_PREFIX: DEFAULT_TOPIC_PREFIX,
+}
+
+# The comprehensive one-form ADB branch collects device + broker fields together.
+PROVISION_INPUT = {
+    CONF_FIRE_TV_IP: "10.0.0.50",
+    "device_name": "Living Room",
+    CONF_DEVICE_ID: "living_room",
+    CONF_BROKER_HOST: "192.168.1.10",
+    CONF_BROKER_PORT: 1883,
+    CONF_BROKER_USERNAME: "user",
+    CONF_BROKER_PASSWORD: "pass",
+    CONF_USE_TLS: False,
     CONF_TOPIC_PREFIX: DEFAULT_TOPIC_PREFIX,
 }
 
@@ -166,26 +185,36 @@ async def _advance_to_provision_form(hass: HomeAssistant) -> str:
     return flow_id
 
 
-async def test_provision_adb_success_leads_to_config(hass: HomeAssistant):
-    from custom_components.fire2mqtt.adb_provision import ProvisionResult
+async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
+    from custom_components.fire2mqtt.adb_provision import BrokerConfig, ProvisionResult
 
     flow_id = await _advance_to_provision_form(hass)
-    with patch(
-        "custom_components.fire2mqtt.adb_provision.async_provision",
-        AsyncMock(return_value=ProvisionResult(installed=True, write_secure_settings=True)),
-    ):
+    mock = AsyncMock(return_value=ProvisionResult(installed=True, write_secure_settings=True))
+    with patch("custom_components.fire2mqtt.adb_provision.async_provision", mock):
         result = await hass.config_entries.flow.async_configure(
-            flow_id, user_input={"fire_tv_ip": "10.0.0.50"}
+            flow_id, user_input=PROVISION_INPUT
         )
-    # Provisioning succeeded → config form, not an entry yet.
-    assert result["type"] == "form"
-    assert result["step_id"] == "config"
-
-    # Completing config then creates the entry.
-    with _patch_apk_check(online=True):
-        result = await hass.config_entries.flow.async_configure(flow_id, user_input=VALID_INPUT)
+    # The comprehensive form provisions and creates the entry in one shot.
     assert result["type"] == "create_entry"
     assert result["data"][CONF_DEVICE_ID] == "living_room"
+    assert result["data"][CONF_TOPIC_PREFIX] == DEFAULT_TOPIC_PREFIX
+
+    # The broker config was forwarded to provisioning (args: hass, ip, config, port).
+    config = mock.call_args.args[2]
+    assert isinstance(config, BrokerConfig)
+    assert config.host == "192.168.1.10"
+    assert config.device_id == "living_room"
+    assert config.use_tls is False
+
+
+async def test_provision_adb_invalid_device_id_shows_error(hass: HomeAssistant):
+    flow_id = await _advance_to_provision_form(hass)
+    result = await hass.config_entries.flow.async_configure(
+        flow_id, user_input={**PROVISION_INPUT, CONF_DEVICE_ID: "Bad ID!"}
+    )
+    assert result["type"] == "form"
+    assert result["step_id"] == "provision_adb"
+    assert result["errors"].get(CONF_DEVICE_ID) == "invalid_device_id"
 
 
 async def test_provision_adb_error_reshows_form(hass: HomeAssistant):
@@ -197,7 +226,7 @@ async def test_provision_adb_error_reshows_form(hass: HomeAssistant):
         AsyncMock(side_effect=ProvisionError("adb_unreachable", "timeout")),
     ):
         result = await hass.config_entries.flow.async_configure(
-            flow_id, user_input={"fire_tv_ip": "10.0.0.50"}
+            flow_id, user_input=PROVISION_INPUT
         )
     assert result["type"] == "form"
     assert result["step_id"] == "provision_adb"

@@ -3,6 +3,7 @@ package dev.harrypulvirenti.fire2mqtt.ui
 import android.app.Application
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.data.PermissionChecker
+import dev.harrypulvirenti.fire2mqtt.data.ProvisioningConfig
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository.MqttSettings
 import dev.harrypulvirenti.fire2mqtt.mqtt.ConnectionTester
@@ -134,6 +135,40 @@ class SetupViewModelTest {
         assertEquals(8883, vm.state.value.port)
         advanceUntilIdle()
         coVerify { repository.setPort(8883) }
+    }
+
+    @Test fun `updateUseTls persists and resets connection state`() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.updateUseTls(true)
+        assertTrue(vm.state.value.useTls)
+        assertEquals(ConnState.Disconnected, vm.state.value.connection)
+        advanceUntilIdle()
+        coVerify { repository.setUseTls(true) }
+    }
+
+    // --- applyProvisioning (HA ADB credential injection) ---
+
+    @Test fun `applyProvisioning persists config and reflects it in state`() = runTest(dispatcher) {
+        val provisioned = SETTINGS.copy(
+            host = "10.0.0.9", port = 8883, useTls = true, deviceId = "den_tv",
+        )
+        coEvery { repository.load() } returnsMany listOf(SETTINGS, provisioned)
+        val vm = vm()
+        advanceUntilIdle()
+
+        val config = ProvisioningConfig(
+            host = "10.0.0.9", port = 8883, useTls = true, deviceId = "den_tv",
+        )
+        vm.applyProvisioning(config)
+        advanceUntilIdle()
+
+        coVerify { repository.applyProvisioning(config) }
+        val s = vm.state.value
+        assertEquals("10.0.0.9", s.host)
+        assertEquals(8883, s.port)
+        assertTrue(s.useTls)
+        assertEquals("den_tv", s.deviceId)
     }
 
     // --- testConnection ---

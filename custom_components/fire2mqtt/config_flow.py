@@ -26,12 +26,18 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     ADB_PORT,
+    CONF_BROKER_HOST,
+    CONF_BROKER_PASSWORD,
+    CONF_BROKER_PORT,
+    CONF_BROKER_USERNAME,
     CONF_DEVICE_ID,
     CONF_ENABLED_APPS,
     CONF_FIRE_TV_IP,
     CONF_IDLE_TIMEOUT,
     CONF_STATE_DETECTION_RULES_OVERRIDE,
     CONF_TOPIC_PREFIX,
+    CONF_USE_TLS,
+    DEFAULT_BROKER_PORT,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_TOPIC_PREFIX,
     DOMAIN,
@@ -194,38 +200,88 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_provision_adb(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
-        """Install the APK + grant WRITE_SECURE_SETTINGS over ADB, then collect config."""
+        """One comprehensive ADB step: install the APK, grant WRITE_SECURE_SETTINGS, push the
+        broker config to the app, and create the entry — all from a single form, since
+        injecting the config means we already have the device id + prefix here."""
         errors: dict[str, str] = {}
         # `detail` is always supplied so the form's {detail} placeholder renders on the
         # first (error-free) pass too; it's filled in only when provisioning fails.
         description_placeholders: dict[str, str] = {"detail": ""}
 
         if user_input is not None:
-            # Imported here so the adb_shell dependency only loads when provisioning is used.
-            from .adb_provision import ProvisionError, async_provision
-
-            try:
-                result = await async_provision(
-                    self.hass, user_input[CONF_FIRE_TV_IP], ADB_PORT
-                )
-            except ProvisionError as err:
-                errors["base"] = err.reason
-                description_placeholders["detail"] = str(err)
+            device_id = user_input[CONF_DEVICE_ID]
+            prefix = user_input.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
+            if not _SLUG_RE.match(device_id):
+                errors[CONF_DEVICE_ID] = "invalid_device_id"
+            elif not _PREFIX_RE.match(prefix):
+                errors[CONF_TOPIC_PREFIX] = "invalid_topic_prefix"
             else:
-                summary = "Installed" if result.installed else "Already installed"
-                self._provision_note = (
-                    f"{summary}; WRITE_SECURE_SETTINGS granted; app launched to self-enable "
-                    "accessibility + notification access."
+                await self.async_set_unique_id(f"{DOMAIN}_{device_id}")
+                self._abort_if_unique_id_configured()
+
+                # Imported here so the adb_shell dependency only loads when provisioning is used.
+                from .adb_provision import BrokerConfig, ProvisionError, async_provision
+
+                config = BrokerConfig(
+                    host=user_input[CONF_BROKER_HOST],
+                    port=int(user_input.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT)),
+                    username=user_input.get(CONF_BROKER_USERNAME, ""),
+                    password=user_input.get(CONF_BROKER_PASSWORD, ""),
+                    device_id=device_id,
+                    topic_prefix=prefix,
+                    use_tls=user_input.get(CONF_USE_TLS, False),
                 )
-                return await self.async_step_config()
+                try:
+                    result = await async_provision(
+                        self.hass, user_input[CONF_FIRE_TV_IP], config, ADB_PORT
+                    )
+                except ProvisionError as err:
+                    errors["base"] = err.reason
+                    description_placeholders["detail"] = str(err)
+                else:
+                    self._entry_data = {
+                        "title": user_input.get("device_name", device_id),
+                        CONF_DEVICE_ID: device_id,
+                        CONF_TOPIC_PREFIX: prefix,
+                    }
+                    summary = "Installed" if result.installed else "Already installed"
+                    return self._create_entry(
+                        f"{summary}; WRITE_SECURE_SETTINGS granted; broker config pushed; "
+                        "app launched to self-enable accessibility + notification access."
+                    )
+
+        suggested = user_input or {}
+        schema = vol.Schema({
+            vol.Required(CONF_FIRE_TV_IP): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Required("device_name", default="Living Room Fire TV"): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Required(CONF_DEVICE_ID, default=_slug(
+                suggested.get("device_name", "living_room_fire_tv")
+            )): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(CONF_BROKER_HOST): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Optional(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): NumberSelector(
+                NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Optional(CONF_BROKER_USERNAME, default=""): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Optional(CONF_BROKER_PASSWORD, default=""): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+            vol.Optional(CONF_USE_TLS, default=False): bool,
+            vol.Optional(CONF_TOPIC_PREFIX, default=DEFAULT_TOPIC_PREFIX): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+        })
 
         return self.async_show_form(
             step_id="provision_adb",
-            data_schema=vol.Schema({
-                vol.Required(CONF_FIRE_TV_IP): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.TEXT)
-                ),
-            }),
+            data_schema=schema,
             errors=errors,
             description_placeholders=description_placeholders,
         )

@@ -43,6 +43,7 @@ class SettingsRepository(private val context: Context) {
         val password: String,
         val deviceId: String,
         val topicPrefix: String,
+        val useTls: Boolean = false,
     )
 
     /** Live settings stream — emits on every persisted change. */
@@ -54,6 +55,7 @@ class SettingsRepository(private val context: Context) {
             password    = prefs[KEY_PASSWORD] ?: DEFAULT_PASSWORD,
             deviceId    = prefs[KEY_DEVICE_ID] ?: DEFAULT_DEVICE_ID,
             topicPrefix = prefs[KEY_TOPIC_PREFIX] ?: DEFAULT_TOPIC_PREFIX,
+            useTls      = (prefs[KEY_USE_TLS] ?: DEFAULT_USE_TLS).toBoolean(),
         )
     }
 
@@ -73,6 +75,26 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTopicPrefix(value: String) = set(KEY_TOPIC_PREFIX, value)
 
+    /** Stored as "true"/"false" to keep every key string-typed (matches the legacy format). */
+    suspend fun setUseTls(value: Boolean) = set(KEY_USE_TLS, value.toString())
+
+    /**
+     * Apply broker settings pushed by HA's ADB provisioning. Writes only the fields that were
+     * actually provided (non-null), in a single edit, so absent extras leave existing values
+     * untouched. See [ProvisioningConfig].
+     */
+    suspend fun applyProvisioning(config: ProvisioningConfig) {
+        context.settingsDataStore.edit { prefs ->
+            config.host?.let { prefs[KEY_HOST] = it }
+            config.port?.let { prefs[KEY_PORT] = it.toString() }
+            config.username?.let { prefs[KEY_USERNAME] = it }
+            config.password?.let { prefs[KEY_PASSWORD] = it }
+            config.deviceId?.let { prefs[KEY_DEVICE_ID] = it }
+            config.topicPrefix?.let { prefs[KEY_TOPIC_PREFIX] = it }
+            config.useTls?.let { prefs[KEY_USE_TLS] = it.toString() }
+        }
+    }
+
     private suspend fun set(key: Preferences.Key<String>, value: String) {
         context.settingsDataStore.edit { it[key] = value }
     }
@@ -84,6 +106,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_PASSWORD     = stringPreferencesKey("broker_password")
         private val KEY_DEVICE_ID    = stringPreferencesKey("device_id")
         private val KEY_TOPIC_PREFIX = stringPreferencesKey("topic_prefix")
+        private val KEY_USE_TLS      = stringPreferencesKey("use_tls")
 
         private const val DEFAULT_HOST         = ""
         private const val DEFAULT_PORT         = 1883
@@ -91,5 +114,6 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_PASSWORD     = ""
         private const val DEFAULT_DEVICE_ID    = "fire_tv"
         private const val DEFAULT_TOPIC_PREFIX = "fire2mqtt"
+        private const val DEFAULT_USE_TLS      = "false"
     }
 }

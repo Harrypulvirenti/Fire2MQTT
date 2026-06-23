@@ -64,18 +64,29 @@ Out of the box, correct `playing` / `paused` / `idle` states for:
 2. Install **Fire2MQTT**
 3. Restart Home Assistant
 4. Settings → Devices & Services → Add Integration → search **Fire2MQTT**
-5. Enter your device name and device ID (must match the APK setting)
+5. Choose how to install the app on the Fire TV — **automatically over ADB** (also pushes
+   your broker settings to the app, so you never type them on the TV) or **manually** —
+   then enter the device name and device ID.
 
-> **Prerequisite:** The MQTT integration must be configured first — Fire2MQTT uses your existing broker.
+> **Requirements:**
+> - An **MQTT broker** such as the [Mosquitto broker add-on](https://github.com/home-assistant/addons/tree/master/mosquitto). Fire2MQTT does not run its own broker.
+> - Home Assistant's **MQTT integration** configured against that broker (the HA side rides on it).
+>
+> **Where credentials live:** the HA side authenticates through HA's MQTT integration; the
+> Fire TV app connects to the broker directly, so it needs an **existing broker
+> username/password**. Home Assistant cannot create accounts on your broker. With the ADB
+> install option these are entered once in HA and pushed to the app.
 
 ### Part 2 — Install the APK on your Fire Stick
 
-See [docs/installing-apk.md](docs/installing-apk.md) for step-by-step instructions.
-Short version:
+Prefer the **Install automatically over ADB** option in the config flow above. To sideload
+by hand instead, see [docs/installing-apk.md](docs/installing-apk.md). Short version:
 ```bash
 adb connect 192.168.1.50
 adb install -r apk/app/build/outputs/apk/debug/app-debug.apk
 ```
+Then open the app on the Fire TV and enter your broker address, an existing broker
+username/password (toggle **TLS** for `mqtts`), and a device ID matching the one in HA.
 
 ---
 

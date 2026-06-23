@@ -24,11 +24,13 @@ namespace, so multiple sticks coexist cleanly on one broker.
 
 1. Install **Fire2MQTT** from HACS and restart Home Assistant.
 2. Settings → Devices & Services → **Add Integration** → search **Fire2MQTT**.
-3. Choose how to get the app onto your Fire TV — automatically over ADB, or sideload it
-   yourself — then enter the device name and ID.
+3. Choose how to get the app onto your Fire TV — automatically over ADB (which also pushes
+   your broker settings to the app), or sideload it yourself — then enter the device name and ID.
 
-> **Prerequisite:** the MQTT integration must be configured first; Fire2MQTT uses your
-> existing broker.
+> **Requirements:** an **MQTT broker** such as Mosquitto (Fire2MQTT doesn't run its own), and
+> Home Assistant's **MQTT integration** configured against it. The Fire TV app connects to the
+> broker directly, so it needs an **existing broker username/password** — Home Assistant can't
+> create broker accounts. TLS (`mqtts`) is supported.
 
 Full documentation, the architecture diagram, and example automations are in the
 [README](https://github.com/Harrypulvirenti/Fire2MQTT#readme).

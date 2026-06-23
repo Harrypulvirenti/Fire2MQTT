@@ -18,6 +18,10 @@
     <string name="field_port_adjust_hint">◂ ▸ to adjust</string>
     <string name="field_username">Username</string>
     <string name="field_password">Password</string>
+    <string name="field_use_tls">Use TLS (mqtts)</string>
+    <string name="field_use_tls_hint">SELECT to toggle</string>
+    <string name="toggle_on">ON</string>
+    <string name="toggle_off">OFF</string>
     <string name="field_device_id">Device ID</string>
     <string name="field_topic_prefix">Topic Prefix</string>
     <string name="field_value_optional">— optional —</string>
