@@ -6,9 +6,10 @@ import json
 import pytest
 from homeassistant.core import HomeAssistant
 
-from tests.conftest import TOPIC_SCREEN, TOPIC_STATUS
+from tests.conftest import TOPIC_PLAYBACK, TOPIC_SCREEN, TOPIC_STATUS
 
 SCREEN = "binary_sensor.fire_tv_test_device_screen"
+PLAYING = "binary_sensor.fire_tv_test_device_playing"
 
 
 @pytest.fixture
@@ -35,6 +36,24 @@ async def test_screen_off(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False, "ts": 1747000000000}))
     await hass.async_block_till_done()
     assert hass.states.get(SCREEN).state == "off"
+
+
+async def test_playing_sensor_on_when_playing(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    assert hass.states.get(PLAYING).state == "on"
+
+
+async def test_playing_sensor_off_when_paused(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 2}))
+    await hass.async_block_till_done()
+    assert hass.states.get(PLAYING).state == "off"
+
+
+async def test_playing_sensor_off_when_idle(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 0}))
+    await hass.async_block_till_done()
+    assert hass.states.get(PLAYING).state == "off"
 
 
 CONNECTIVITY = "binary_sensor.fire_tv_test_device_connectivity"

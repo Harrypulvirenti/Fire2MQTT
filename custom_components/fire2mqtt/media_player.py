@@ -23,7 +23,7 @@ from .const import (
     LAUNCHER_PACKAGES,
 )
 from .coordinator import Fire2MqttCoordinator
-from .data.apps import CURATED_APPS
+from .data.apps import canonical_package, installed_curated
 from .data.rules import CURATED_RULES
 from .entity import Fire2MqttEntity
 from .state_detection import evaluate
@@ -119,9 +119,12 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         )
 
     def _get_rules(self, package: str) -> list:
-        if package in self._user_rules:
-            return self._user_rules[package]
-        return CURATED_RULES.get(package, ["idle"])
+        # Resolve aliases (e.g. a Fire-TV-specific build) to the canonical package
+        # the curated rules + any user override are keyed by, so detection still works.
+        canonical = canonical_package(package)
+        if canonical in self._user_rules:
+            return self._user_rules[canonical]
+        return CURATED_RULES.get(canonical, ["idle"])
 
     @property
     def state(self) -> MediaPlayerState:
@@ -197,11 +200,20 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     @property
     def source(self) -> str | None:
+        # Prefer the curated friendly name when the foreground app is a known
+        # installed app, so it lines up with an entry in source_list.
+        package = self.coordinator.data.app.get("package", "")
+        for info, launch_package in self._installed_apps().values():
+            if package in info.packages:
+                return info.friendly_name
         return self.coordinator.data.app.get("name")
 
     @property
     def source_list(self) -> list[str]:
-        return [info.friendly_name for info in CURATED_APPS.values()]
+        return sorted(info.friendly_name for info, _pkg in self._installed_apps().values())
+
+    def _installed_apps(self) -> dict[str, tuple]:
+        return installed_curated(self.coordinator.data.installed_packages)
 
     async def async_media_play(self) -> None:
         await self.coordinator.async_media_command("play")
@@ -233,9 +245,9 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         await self.coordinator.async_mute_volume(mute)
 
     async def async_select_source(self, source: str) -> None:
-        for info in CURATED_APPS.values():
+        for info, launch_package in self._installed_apps().values():
             if info.friendly_name == source:
-                await self.coordinator.async_launch_app(info.package)
+                await self.coordinator.async_launch_app(launch_package)
                 return
         _LOGGER.warning("Fire2MQTT: unknown source '%s'", source)
 

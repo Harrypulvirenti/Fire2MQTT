@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     DOMAIN,
     TOPIC_STATE_APP,
+    TOPIC_STATE_APPS,
     TOPIC_STATE_DEVICE,
     TOPIC_STATE_PLAYBACK,
     TOPIC_STATE_SCREEN,
@@ -27,7 +28,14 @@ from .const import (
     TOPIC_CMD_VOLUME,
 )
 from .mqtt_bus import MqttBus
-from .schema import AppPayload, DevicePayload, PlaybackPayload, ScreenPayload, VolumePayload
+from .schema import (
+    AppPayload,
+    DevicePayload,
+    InstalledAppsPayload,
+    PlaybackPayload,
+    ScreenPayload,
+    VolumePayload,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +48,8 @@ class Fire2MqttData:
     screen: dict[str, Any] = field(default_factory=dict)
     volume: dict[str, Any] = field(default_factory=dict)
     device_info: dict[str, Any] = field(default_factory=dict)
+    # Packages the device reports as installed/launchable (from state/apps).
+    installed_packages: set[str] = field(default_factory=set)
 
 
 class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
@@ -77,6 +87,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
             (TOPIC_STATUS, self._on_status),
             (TOPIC_STATE_PLAYBACK, self._on_playback),
             (TOPIC_STATE_APP, self._on_app),
+            (TOPIC_STATE_APPS, self._on_apps),
             (TOPIC_STATE_SCREEN, self._on_screen),
             (TOPIC_STATE_VOLUME, self._on_volume),
             (TOPIC_STATE_DEVICE, self._on_device_info),
@@ -139,6 +150,15 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         if parsed is None:
             return
         self.data.app = AppPayload.from_raw(parsed, logger=_LOGGER)
+        self.async_set_updated_data(self.data)
+
+    @callback
+    def _on_apps(self, msg: mqtt.ReceiveMessage) -> None:
+        parsed = self._parse_json(msg.payload)
+        if parsed is None:
+            return
+        normalised = InstalledAppsPayload.from_raw(parsed, logger=_LOGGER)
+        self.data.installed_packages = set(normalised["packages"])
         self.async_set_updated_data(self.data)
 
     @callback

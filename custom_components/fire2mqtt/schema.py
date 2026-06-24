@@ -183,6 +183,44 @@ class AppPayload:
 
 
 @dataclass(frozen=True)
+class InstalledAppsPayload:
+    """Models the ``state/apps`` MQTT topic payload: the launchable packages
+    installed on the device, published retained so HA can show only the apps that
+    are actually present."""
+
+    packages: list[str]
+    ts: int = 0
+
+    @classmethod
+    def from_raw(
+        cls,
+        raw: dict,
+        *,
+        logger: logging.Logger | None = None,
+    ) -> dict:
+        """Validate/coerce *raw* and return a plain normalised dict."""
+        raw_packages = raw.get("packages")
+        packages: list[str] = []
+        if isinstance(raw_packages, list):
+            for pkg in raw_packages:
+                # Package names are strings; ignore anything else rather than
+                # coercing (a numeric "package" is meaningless).
+                if isinstance(pkg, str):
+                    coerced = _coerce_str(pkg, "packages[]", None, logger)
+                    if coerced:
+                        packages.append(coerced)
+        elif raw_packages is not None and logger:
+            logger.warning(
+                "Fire2MQTT schema: field 'packages' is not a list (%r); using []",
+                raw_packages,
+            )
+        return {
+            "packages": packages,
+            "ts": _coerce_int(raw.get("ts"), "ts", 0, logger) or 0,
+        }
+
+
+@dataclass(frozen=True)
 class ScreenPayload:
     """Models the ``state/screen`` MQTT topic payload."""
 
@@ -237,6 +275,8 @@ class DevicePayload:
     ip: str = ""
     mac: str = ""
     schema_version: int = SCHEMA_VERSION
+    app_version: str = ""
+    app_version_code: int = 0
 
     @classmethod
     def from_raw(
@@ -269,4 +309,8 @@ class DevicePayload:
             "ip": _coerce_str(raw.get("ip"), "ip", "", logger) or "",
             "mac": _coerce_str(raw.get("mac"), "mac", "", logger) or "",
             "schema_version": schema_ver,
+            "app_version": _coerce_str(raw.get("app_version"), "app_version", "", logger) or "",
+            "app_version_code": _coerce_int(
+                raw.get("app_version_code"), "app_version_code", 0, logger
+            ) or 0,
         }

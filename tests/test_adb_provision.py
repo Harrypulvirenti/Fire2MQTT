@@ -12,6 +12,7 @@ from custom_components.fire2mqtt.adb_provision import (
     ProvisionError,
     _build_launch_cmd,
     async_provision,
+    async_update_apk,
 )
 from custom_components.fire2mqtt.const import FIRE2MQTT_LAUNCH_COMPONENT, FIRE2MQTT_PACKAGE
 
@@ -128,6 +129,41 @@ async def test_provision_grant_failed_raises(hass: HomeAssistant, _patch_adb_imp
         await async_provision(hass, "10.0.0.50", _cfg())
     assert exc.value.reason == "grant_failed"
     device.close.assert_awaited()
+
+
+# ── update (reinstall) path ───────────────────────────────────────────────────
+
+async def test_update_apk_reinstalls_and_relaunches(hass: HomeAssistant, _patch_adb_imports):
+    device = _fake_device({"pm install": "Success"})
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        await async_update_apk(hass, "10.0.0.50")
+
+    device.push.assert_awaited_once()
+    assert any("pm install -r -g" in c.args[0] for c in device.shell.call_args_list)
+    # Relaunched, with no broker extras (settings persist across install -r).
+    launch = next(c.args[0] for c in device.shell.call_args_list if "am start" in c.args[0])
+    assert FIRE2MQTT_LAUNCH_COMPONENT in launch
+    assert "--es" not in launch
+    device.close.assert_awaited_once()
+
+
+async def test_update_apk_install_failure_raises(hass: HomeAssistant, _patch_adb_imports):
+    device = _fake_device({"pm install": "Failure [INSTALL_FAILED_VERSION_DOWNGRADE]"})
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        with pytest.raises(ProvisionError) as exc:
+            await async_update_apk(hass, "10.0.0.50")
+    assert exc.value.reason == "install_failed"
+    device.close.assert_awaited_once()
 
 
 # ── pure launch-command builder ───────────────────────────────────────────────

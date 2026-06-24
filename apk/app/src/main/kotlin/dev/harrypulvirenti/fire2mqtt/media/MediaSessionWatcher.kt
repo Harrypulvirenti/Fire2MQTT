@@ -24,24 +24,14 @@ class MediaSessionWatcher(
 
     fun playbackEvents(): Flow<PlaybackPayload> = callbackFlow {
         val callbacks = mutableMapOf<MediaController, MediaController.Callback>()
+        var controllers: List<MediaController> = emptyList()
 
-        fun attachCallbacks(controllers: List<MediaController>) {
-            controllers.forEach { controller ->
-                if (controller in callbacks) return@forEach
-                val cb = object : MediaController.Callback() {
-                    override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        trySend(buildPayload(controller, state))
-                    }
-                    override fun onMetadataChanged(metadata: MediaMetadata?) {
-                        val state = controller.playbackState
-                        trySend(buildPayload(controller, state, metadata))
-                    }
-                }
-                controller.registerCallback(cb)
-                callbacks[controller] = cb
-                // Emit current state on attach
-                trySend(buildPayload(controller, controller.playbackState, controller.metadata))
-            }
+        // Fire TV usually has several active sessions at once (the streaming app plus
+        // Alexa/Vizzini media players). They all share one state/playback topic, so we must
+        // publish only the *primary* one — otherwise a background session at STATE_NONE
+        // clobbers the app you're actually watching (e.g. Crunchyroll playing → reported idle).
+        fun emitPrimary() {
+            trySend(buildPayload(selectPrimary(controllers)))
         }
 
         fun detachAll() {
@@ -49,14 +39,29 @@ class MediaSessionWatcher(
             callbacks.clear()
         }
 
-        val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+        fun attach(active: List<MediaController>) {
             detachAll()
-            if (controllers != null) attachCallbacks(controllers)
+            controllers = active
+            active.forEach { controller ->
+                val cb = object : MediaController.Callback() {
+                    // Any session changing re-selects the primary, so a background session's
+                    // update can no longer overwrite the foreground app's playback.
+                    override fun onPlaybackStateChanged(state: PlaybackState?) = emitPrimary()
+                    override fun onMetadataChanged(metadata: MediaMetadata?) = emitPrimary()
+                }
+                controller.registerCallback(cb)
+                callbacks[controller] = cb
+            }
+            emitPrimary()
+        }
+
+        val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { active ->
+            attach(active ?: emptyList())
         }
 
         try {
             manager.addOnActiveSessionsChangedListener(sessionListener, notificationListenerComponent)
-            attachCallbacks(manager.getActiveSessions(notificationListenerComponent))
+            attach(manager.getActiveSessions(notificationListenerComponent))
         } catch (e: SecurityException) {
             logger.e(e) { "Missing NotificationListener permission: ${e.message}" }
         }
@@ -67,17 +72,14 @@ class MediaSessionWatcher(
         }
     }.flowOn(Dispatchers.Main)
 
-    private fun buildPayload(
-        controller: MediaController,
-        state: PlaybackState?,
-        metadata: MediaMetadata? = controller.metadata,
-    ): PlaybackPayload {
-        val schemaState = PlaybackStateMapper.toSchemaInt(
-            state?.state ?: PlaybackState.STATE_NONE
-        )
+    private fun buildPayload(controller: MediaController?): PlaybackPayload {
+        val state = controller?.playbackState
+        val metadata = controller?.metadata
         return PlaybackPayload(
-            mediaSessionState = schemaState,
-            app = controller.packageName,
+            mediaSessionState = PlaybackStateMapper.toSchemaInt(
+                state?.state ?: PlaybackState.STATE_NONE
+            ),
+            app = controller?.packageName ?: "",
             title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
             artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                 ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
@@ -86,5 +88,24 @@ class MediaSessionWatcher(
                 ?.takeIf { it > 0 },
             positionMs = state?.position?.takeIf { it >= 0 },
         )
+    }
+
+    companion object {
+        /**
+         * The session to report when several are active: the most "playing" one. A background
+         * player sitting at STATE_NONE/STOPPED must never outrank the app actually playing.
+         */
+        internal fun selectPrimary(controllers: List<MediaController>): MediaController? =
+            controllers.maxByOrNull { statePriority(it.playbackState?.state) }
+
+        internal fun statePriority(state: Int?): Int = when (state) {
+            PlaybackState.STATE_PLAYING,
+            PlaybackState.STATE_BUFFERING,
+            PlaybackState.STATE_FAST_FORWARDING,
+            PlaybackState.STATE_REWINDING -> 3
+            PlaybackState.STATE_PAUSED -> 2
+            PlaybackState.STATE_STOPPED -> 1
+            else -> 0
+        }
     }
 }

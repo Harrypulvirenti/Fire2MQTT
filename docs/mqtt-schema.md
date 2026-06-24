@@ -1,7 +1,10 @@
-# Fire2MQTT — MQTT Schema v1
+# Fire2MQTT — MQTT Schema v2
 
 This document is the canonical contract between the Fire TV APK and the Home Assistant integration.
 **Breaking changes bump `schema_version` in the `state/device` payload and require a coordinated APK + integration release.**
+
+`schema_version` 2 added the retained `state/apps` topic (installed-app inventory). It is
+additive — an older integration ignores it — but the version bump nudges users to update both halves.
 
 ## Topic structure
 
@@ -35,9 +38,14 @@ Published once on connect. Contains static device metadata.
   "fire_os": "8.2.2.1",
   "ip": "192.168.1.50",
   "mac": "a4:c3:f0:xx:xx:xx",
-  "schema_version": 1
+  "schema_version": 2,
+  "app_version": "0.2.0-beta5",
+  "app_version_code": 2
 }
 ```
+
+`app_version` / `app_version_code` are the APK's own `versionName` / `versionCode`; HA's update
+entity compares them against the integration's release version to offer an ADB-pushed update.
 
 ---
 
@@ -88,6 +96,29 @@ Published when the foreground app changes (polled at 1s via UsageStatsManager).
   "ts": 1747000000000
 }
 ```
+
+---
+
+### `fire2mqtt/<device_id>/state/apps`
+Published once on connect (since `schema_version` 2). The launchable packages installed on
+the device, so the integration can offer only the apps that are actually present. A service
+restart re-publishes after an install/uninstall.
+
+```json
+{
+  "packages": [
+    "com.netflix.ninja",
+    "com.amazon.avod.thirdpartyclient",
+    "org.jellyfin.androidtv"
+  ],
+  "ts": 1747000000000
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `packages` | string[] | Package names of every launchable (`LAUNCHER` or `LEANBACK_LAUNCHER`) app, excluding Fire2MQTT itself |
+| `ts` | int | Unix epoch milliseconds when the APK emitted this payload |
 
 ---
 

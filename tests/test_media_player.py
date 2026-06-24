@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 
 from tests.conftest import (
     TOPIC_APP,
+    TOPIC_APPS,
     TOPIC_CMD_LAUNCH,
     TOPIC_CMD_MEDIA,
     TOPIC_CMD_POWER,
@@ -141,9 +142,37 @@ async def test_turn_off_publishes_sleep(hass: HomeAssistant, online, mock_mqtt_p
     assert any(t == TOPIC_CMD_POWER and p == "sleep" for t, p in mock_mqtt_publish.published)
 
 
-async def test_select_source_publishes_launch(hass: HomeAssistant, online, mock_mqtt_publish):
+async def test_source_list_lists_only_installed_apps(hass: HomeAssistant, online, mock_mqtt_subscribe):
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APPS, json.dumps({"packages": ["com.netflix.ninja", "org.jellyfin.androidtv"], "ts": 1})
+    )
+    await hass.async_block_till_done()
+    source_list = hass.states.get(ENTITY_ID).attributes["source_list"]
+    assert source_list == ["Jellyfin", "Netflix"]
+    assert "Plex" not in source_list
+
+
+async def test_select_source_publishes_launch(hass: HomeAssistant, online, mock_mqtt_subscribe, mock_mqtt_publish):
+    await mock_mqtt_subscribe.deliver(TOPIC_APPS, json.dumps({"packages": ["com.netflix.ninja"], "ts": 1}))
+    await hass.async_block_till_done()
     await hass.services.async_call("media_player", "select_source", {"entity_id": ENTITY_ID, "source": "Netflix"}, blocking=True)
     assert any(t == TOPIC_CMD_LAUNCH and p == "com.netflix.ninja" for t, p in mock_mqtt_publish.published)
+
+
+async def test_aliased_foreground_package_resolves_to_playing(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, monkeypatch
+):
+    """A foreground package known only as an alias still resolves to its curated
+    rules (covers the Crunchyroll 'no playback while watching' case)."""
+    from custom_components.fire2mqtt.data import apps as apps_mod
+
+    alias = "com.netflix.ninja.firetv"
+    monkeypatch.setitem(apps_mod.PACKAGE_TO_KEY, alias, "netflix")
+
+    await mock_mqtt_subscribe.deliver(TOPIC_APP, json.dumps({"package": alias, "name": "Netflix"}))
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "playing"
 
 
 async def test_turn_on_publishes_wake(hass: HomeAssistant, online, mock_mqtt_publish):

@@ -10,6 +10,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import Fire2MqttConfigEntry
+from .const import MEDIA_SESSION_STATE_PLAYING
 from .coordinator import Fire2MqttCoordinator
 from .entity import Fire2MqttEntity
 
@@ -22,8 +23,31 @@ async def async_setup_entry(
     coordinator = entry.runtime_data.coordinator
     async_add_entities([
         ScreenOnSensor(coordinator),
+        PlayingSensor(coordinator),
         ConnectivitySensor(coordinator),
     ])
+
+
+class PlayingSensor(Fire2MqttEntity, BinarySensorEntity):
+    """On while media is actively playing, off when paused/idle/stopped.
+
+    Reads the primary media session's state from the playback payload — a simple
+    'is something playing?' signal alongside the media_player entity's richer state.
+    """
+
+    _attr_name = "Playing"
+    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_icon = "mdi:play-circle"
+
+    def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
+        super().__init__(coordinator, "playing")
+
+    @property
+    def is_on(self) -> bool:
+        return (
+            self.coordinator.data.playback.get("media_session_state")
+            == MEDIA_SESSION_STATE_PLAYING
+        )
 
 
 class ScreenOnSensor(Fire2MqttEntity, BinarySensorEntity):
