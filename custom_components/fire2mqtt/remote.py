@@ -13,11 +13,18 @@ from homeassistant.components.remote import (
     RemoteEntity,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import Fire2MqttConfigEntry
 from .coordinator import Fire2MqttCoordinator
 from .entity import Fire2MqttEntity
+
+_POWER_UNSUPPORTED = (
+    "Fire TV power can't be controlled from the stick: a sideloaded app can't wake it, and "
+    "the TV powers on via the remote's IR, not CEC. Control TV power via the TV's own Home "
+    "Assistant integration or an IR blaster."
+)
 
 
 async def async_setup_entry(
@@ -42,10 +49,12 @@ class Fire2MqttRemote(Fire2MqttEntity, RemoteEntity):
         return self.coordinator.data.screen.get("on")
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self.coordinator.async_power("wake")
+        # Power isn't controllable from the stick (see message); surface that plainly
+        # instead of silently sending a command that does nothing.
+        raise HomeAssistantError(_POWER_UNSUPPORTED)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.async_power("sleep")
+        raise HomeAssistantError(_POWER_UNSUPPORTED)
 
     async def async_send_command(self, command: Iterable[str], **kwargs: Any) -> None:
         num_repeats: int = kwargs.get(ATTR_NUM_REPEATS, DEFAULT_NUM_REPEATS)

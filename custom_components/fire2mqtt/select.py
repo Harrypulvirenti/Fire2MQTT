@@ -1,8 +1,9 @@
-"""Fire2MQTT select entity — a single app launcher.
+"""Fire2MQTT select entity — the app launcher chooser.
 
-Replaces the old per-app launch buttons. Its options are the curated apps the
-device actually reports as installed (``state/apps``), optionally narrowed by the
-``enabled_apps`` option. Selecting an option launches that app on the Fire TV.
+Its options are the curated apps the device actually reports as installed
+(``state/apps``), optionally narrowed by the ``enabled_apps`` option. Picking an
+option just *records the choice* (on the coordinator); the separate Launch button
+(see ``button.py``) actually opens it on the Fire TV.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import Fire2MqttConfigEntry
 from .const import CONF_ENABLED_APPS
 from .coordinator import Fire2MqttCoordinator
-from .data.apps import CURATED_APPS, PACKAGE_TO_KEY, installed_curated
+from .data.apps import CURATED_APPS, installed_curated
 from .entity import Fire2MqttEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,17 +55,18 @@ class Fire2MqttAppLauncherSelect(Fire2MqttEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        """Reflect the foreground app when it's one of the launchable options."""
-        package = self.coordinator.data.app.get("package", "")
-        key = PACKAGE_TO_KEY.get(package)
-        if key is None or key not in self._matched():
+        """The app the user picked (launched by the Launch button), if still installed."""
+        key = self.coordinator.selected_app_key
+        matched = self._matched()
+        if key is None or key not in matched:
             return None
-        name = CURATED_APPS[key].friendly_name
-        return name if name in self.options else None
+        return matched[key][0].friendly_name
 
     async def async_select_option(self, option: str) -> None:
-        for info, launch_package in self._matched().values():
+        # Record the choice only — the Launch button performs the actual launch.
+        for key, (info, _pkg) in self._matched().items():
             if info.friendly_name == option:
-                await self.coordinator.async_launch_app(launch_package)
+                self.coordinator.selected_app_key = key
+                self.async_write_ha_state()
                 return
         _LOGGER.warning("Fire2MQTT: unknown app launcher option %r", option)

@@ -3,6 +3,7 @@ package dev.harrypulvirenti.fire2mqtt.commands
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.media.AudioManager
+import android.os.Build
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import co.touchlab.kermit.Logger
@@ -49,16 +50,14 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     fun dispatchKey(keyCode: Int) {
-        val globalAction = when (keyCode) {
-            KeyEvent.KEYCODE_HOME -> GLOBAL_ACTION_HOME
-            KeyEvent.KEYCODE_BACK -> GLOBAL_ACTION_BACK
-            KeyEvent.KEYCODE_APP_SWITCH -> GLOBAL_ACTION_RECENTS
-            else -> null
-        }
-        if (globalAction != null) {
-            performGlobalAction(globalAction)
+        // A sideloaded app can't inject raw key events (needs system INJECT_EVENTS), so
+        // navigation/system keys go through AccessibilityService global actions. DPAD actions
+        // are API 30+ (Fire OS 11) — without them arrow navigation can't be delivered at all.
+        globalActionFor(keyCode, Build.VERSION.SDK_INT)?.let {
+            performGlobalAction(it)
             return
         }
+        // Media transport keys still route through the active media session.
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
@@ -66,6 +65,26 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
 
     companion object {
         var instance: Fire2MqttAccessibilityService? = null
+
+        /**
+         * Maps a key code to the AccessibilityService global action that delivers it, or null
+         * when none applies (those keys fall back to the media-session path). DPAD navigation
+         * actions only exist on API 30+ (Android 11 / Fire OS 11). Pure for testing.
+         */
+        internal fun globalActionFor(keyCode: Int, sdkInt: Int): Int? = when (keyCode) {
+            KeyEvent.KEYCODE_HOME -> GLOBAL_ACTION_HOME
+            KeyEvent.KEYCODE_BACK -> GLOBAL_ACTION_BACK
+            KeyEvent.KEYCODE_APP_SWITCH -> GLOBAL_ACTION_RECENTS
+            KeyEvent.KEYCODE_DPAD_UP -> dpadAction(GLOBAL_ACTION_DPAD_UP, sdkInt)
+            KeyEvent.KEYCODE_DPAD_DOWN -> dpadAction(GLOBAL_ACTION_DPAD_DOWN, sdkInt)
+            KeyEvent.KEYCODE_DPAD_LEFT -> dpadAction(GLOBAL_ACTION_DPAD_LEFT, sdkInt)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> dpadAction(GLOBAL_ACTION_DPAD_RIGHT, sdkInt)
+            KeyEvent.KEYCODE_DPAD_CENTER -> dpadAction(GLOBAL_ACTION_DPAD_CENTER, sdkInt)
+            else -> null
+        }
+
+        private fun dpadAction(action: Int, sdkInt: Int): Int? =
+            if (sdkInt >= Build.VERSION_CODES.R) action else null
 
         // Buffered (replay=1) so a late collector still sees the current foreground app.
         private val foregroundPackagesMutable = MutableSharedFlow<String>(
