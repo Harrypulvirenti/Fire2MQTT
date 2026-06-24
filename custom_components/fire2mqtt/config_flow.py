@@ -10,6 +10,7 @@ import voluptuous as vol
 
 from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.const import CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectOptionDict,
@@ -55,6 +56,57 @@ _PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$")
 
 def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+# Broker hostnames that only resolve on the HA host itself — a Fire TV across the LAN can't
+# reach these, so we substitute HA's own LAN IP when the configured MQTT broker is one of them
+# (the Mosquitto add-on registers as ``core-mosquitto``; a same-host broker as ``localhost``).
+_LOCAL_ONLY_HOSTS = frozenset(
+    {
+        "",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "core-mosquitto",
+        "addon_core_mosquitto",
+        "homeassistant",
+        "homeassistant.local",
+    }
+)
+
+
+async def _mqtt_broker_defaults(hass) -> dict:
+    """Best-effort broker defaults for the provisioning form, taken from HA's own MQTT entry.
+
+    The Fire TV is provisioned to talk to the same broker the user already set up in Home
+    Assistant, so they never retype host/port/credentials. When that broker is only reachable
+    on the HA box (``core-mosquitto``, ``localhost``, …) we swap in HA's LAN IP, which is the
+    address the Fire TV must actually connect to. Returns only the keys we could resolve;
+    every value is still editable in the form.
+    """
+    entries = hass.config_entries.async_entries("mqtt")
+    if not entries:
+        return {}
+    data = entries[0].data
+    host = data.get(mqtt.CONF_BROKER, "")
+    if host in _LOCAL_ONLY_HOSTS:
+        try:
+            from homeassistant.components.network import async_get_source_ip
+
+            host = await async_get_source_ip(hass)
+        except Exception:  # noqa: BLE001 — IP discovery is best-effort; never block the form
+            _LOGGER.debug("Could not resolve HA LAN IP for broker default", exc_info=True)
+            host = ""
+    defaults: dict = {}
+    if host:
+        defaults[CONF_BROKER_HOST] = host
+    if (port := data.get(CONF_PORT)) is not None:
+        defaults[CONF_BROKER_PORT] = port
+    if username := data.get(CONF_USERNAME):
+        defaults[CONF_BROKER_USERNAME] = username
+    if password := data.get(CONF_PASSWORD):
+        defaults[CONF_BROKER_PASSWORD] = password
+    return defaults
 
 
 class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -251,6 +303,23 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
 
         suggested = user_input or {}
+        # Prefill the broker fields from HA's own MQTT integration so the user doesn't retype
+        # what they already configured. A re-shown form (after an error) keeps the user's edits,
+        # so user_input takes precedence over the detected defaults.
+        detected = await _mqtt_broker_defaults(self.hass)
+
+        def _broker_default(key, fallback):
+            return suggested.get(key, detected.get(key, fallback))
+
+        # Only attach a default when we actually detected a host; otherwise keep the field a
+        # bare Required so the form still forces the user to supply one.
+        broker_host = _broker_default(CONF_BROKER_HOST, None)
+        host_key = (
+            vol.Required(CONF_BROKER_HOST, default=broker_host)
+            if broker_host
+            else vol.Required(CONF_BROKER_HOST)
+        )
+
         schema = vol.Schema({
             vol.Required(CONF_FIRE_TV_IP): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT)
@@ -261,16 +330,25 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_DEVICE_ID, default=_slug(
                 suggested.get("device_name", "living_room_fire_tv")
             )): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-            vol.Required(CONF_BROKER_HOST): TextSelector(
+            host_key: TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT)
             ),
-            vol.Optional(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): NumberSelector(
+            vol.Optional(
+                CONF_BROKER_PORT,
+                default=_broker_default(CONF_BROKER_PORT, DEFAULT_BROKER_PORT),
+            ): NumberSelector(
                 NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)
             ),
-            vol.Optional(CONF_BROKER_USERNAME, default=""): TextSelector(
+            vol.Optional(
+                CONF_BROKER_USERNAME,
+                default=_broker_default(CONF_BROKER_USERNAME, ""),
+            ): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT)
             ),
-            vol.Optional(CONF_BROKER_PASSWORD, default=""): TextSelector(
+            vol.Optional(
+                CONF_BROKER_PASSWORD,
+                default=_broker_default(CONF_BROKER_PASSWORD, ""),
+            ): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
             vol.Optional(CONF_USE_TLS, default=False): bool,

@@ -16,6 +16,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -170,6 +171,41 @@ class SetupViewModelTest {
         assertTrue(s.useTls)
         assertEquals("den_tv", s.deviceId)
     }
+
+    @Test fun `applyProvisioning waits for the initial load so it can't be clobbered by blanks`() =
+        runTest(dispatcher) {
+            // Reproduces the provisioning race: MainActivity calls applyProvisioning right after the
+            // ViewModel is built, while the init load is still in flight. Gate the first load so it
+            // resolves LAST with blanks — without initialLoad.join() that erases the pushed host.
+            val provisioned = SETTINGS.copy(host = "10.0.0.9", port = 8883, useTls = true)
+            val loadGate = CompletableDeferred<Unit>()
+            var loadCount = 0
+            coEvery { repository.load() } coAnswers {
+                if (++loadCount == 1) {
+                    loadGate.await()
+                    SETTINGS.copy(host = "") // fresh-install defaults: blank host
+                } else {
+                    provisioned
+                }
+            }
+
+            val vm = vm()
+            val config = ProvisioningConfig(host = "10.0.0.9", port = 8883, useTls = true)
+            vm.applyProvisioning(config)
+            advanceUntilIdle()
+
+            // The init load is still gated; provisioning must be parked on initialLoad.join().
+            coVerify(exactly = 0) { repository.applyProvisioning(any()) }
+
+            loadGate.complete(Unit)
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) { repository.applyProvisioning(config) }
+            val s = vm.state.value
+            assertEquals("10.0.0.9", s.host)
+            assertEquals(8883, s.port)
+            assertTrue(s.useTls)
+        }
 
     // --- testConnection ---
 

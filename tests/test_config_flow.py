@@ -4,6 +4,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -41,6 +42,22 @@ def _patch_apk_check(online: bool = True):
         "_check_apk_reachable",
         AsyncMock(return_value=online),
     )
+
+
+def _schema_defaults(result) -> dict:
+    """Extract {key: default value} from a returned form's voluptuous schema."""
+    return {
+        marker.schema: marker.default()
+        for marker in result["data_schema"].schema
+        if getattr(marker, "default", vol.UNDEFINED) is not vol.UNDEFINED
+    }
+
+
+def _add_mqtt_entry(hass: HomeAssistant, **data) -> MockConfigEntry:
+    """Register a fake HA MQTT config entry so the provisioning form can read its broker."""
+    entry = MockConfigEntry(domain="mqtt", data=data)
+    entry.add_to_hass(hass)
+    return entry
 
 
 VALID_INPUT = {
@@ -172,8 +189,8 @@ async def test_duplicate_device_id_aborts(hass: HomeAssistant):
 
 # ── ADB provisioning step ─────────────────────────────────────────────────────
 
-async def _advance_to_provision_form(hass: HomeAssistant) -> str:
-    """Drive the flow through user menu → provision_adb form; return flow_id."""
+async def _advance_to_provision_form(hass: HomeAssistant) -> dict:
+    """Drive the flow through user menu → provision_adb form; return the form result."""
     with _patch_mqtt_client():
         await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
@@ -182,13 +199,13 @@ async def _advance_to_provision_form(hass: HomeAssistant) -> str:
         )
     assert result["type"] == "form"
     assert result["step_id"] == "provision_adb"
-    return flow_id
+    return result
 
 
 async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
     from custom_components.fire2mqtt.adb_provision import BrokerConfig, ProvisionResult
 
-    flow_id = await _advance_to_provision_form(hass)
+    flow_id = (await _advance_to_provision_form(hass))["flow_id"]
     mock = AsyncMock(return_value=ProvisionResult(installed=True, write_secure_settings=True))
     with patch("custom_components.fire2mqtt.adb_provision.async_provision", mock):
         result = await hass.config_entries.flow.async_configure(
@@ -208,7 +225,7 @@ async def test_provision_adb_success_creates_entry(hass: HomeAssistant):
 
 
 async def test_provision_adb_invalid_device_id_shows_error(hass: HomeAssistant):
-    flow_id = await _advance_to_provision_form(hass)
+    flow_id = (await _advance_to_provision_form(hass))["flow_id"]
     result = await hass.config_entries.flow.async_configure(
         flow_id, user_input={**PROVISION_INPUT, CONF_DEVICE_ID: "Bad ID!"}
     )
@@ -220,7 +237,7 @@ async def test_provision_adb_invalid_device_id_shows_error(hass: HomeAssistant):
 async def test_provision_adb_error_reshows_form(hass: HomeAssistant):
     from custom_components.fire2mqtt.adb_provision import ProvisionError
 
-    flow_id = await _advance_to_provision_form(hass)
+    flow_id = (await _advance_to_provision_form(hass))["flow_id"]
     with patch(
         "custom_components.fire2mqtt.adb_provision.async_provision",
         AsyncMock(side_effect=ProvisionError("adb_unreachable", "timeout")),
@@ -231,6 +248,36 @@ async def test_provision_adb_error_reshows_form(hass: HomeAssistant):
     assert result["type"] == "form"
     assert result["step_id"] == "provision_adb"
     assert result["errors"].get("base") == "adb_unreachable"
+
+
+async def test_provision_form_prefills_broker_from_mqtt_entry(hass: HomeAssistant):
+    """The form defaults host/port/username/password from HA's existing MQTT entry."""
+    _add_mqtt_entry(
+        hass, broker="192.168.1.50", port=1884, username="mq", password="secret"
+    )
+    result = await _advance_to_provision_form(hass)
+    defaults = _schema_defaults(result)
+    assert defaults[CONF_BROKER_HOST] == "192.168.1.50"
+    assert defaults[CONF_BROKER_PORT] == 1884
+    assert defaults[CONF_BROKER_USERNAME] == "mq"
+    assert defaults[CONF_BROKER_PASSWORD] == "secret"
+
+
+async def test_provision_form_substitutes_lan_ip_for_local_broker(hass: HomeAssistant):
+    """A broker only reachable on the HA host (core-mosquitto) becomes HA's LAN IP."""
+    _add_mqtt_entry(hass, broker="core-mosquitto", port=1883)
+    with patch(
+        "homeassistant.components.network.async_get_source_ip",
+        AsyncMock(return_value="10.0.0.7"),
+    ):
+        result = await _advance_to_provision_form(hass)
+    assert _schema_defaults(result)[CONF_BROKER_HOST] == "10.0.0.7"
+
+
+async def test_provision_form_host_stays_required_without_mqtt_entry(hass: HomeAssistant):
+    """With no MQTT entry to learn from, the host field keeps no default (stays required)."""
+    result = await _advance_to_provision_form(hass)
+    assert CONF_BROKER_HOST not in _schema_defaults(result)
 
 
 # ── options flow ──────────────────────────────────────────────────────────────
