@@ -48,24 +48,32 @@ async def test_options_empty_before_inventory(hass: HomeAssistant, setup_integra
     assert hass.states.get(SELECT).attributes["options"] == []
 
 
-async def test_select_option_launches_matched_package(
+async def test_select_option_records_choice_without_launching(
     hass: HomeAssistant, online_with_apps, mock_mqtt_publish
 ):
     await hass.services.async_call(
         "select", "select_option",
         {"entity_id": SELECT, "option": "Netflix"}, blocking=True,
     )
-    assert (TOPIC_CMD_LAUNCH, "com.netflix.ninja") in mock_mqtt_publish.published
+    assert hass.states.get(SELECT).state == "Netflix"
+    # Selecting only records the choice; the Launch button performs the launch.
+    assert not any(topic == TOPIC_CMD_LAUNCH for topic, _ in mock_mqtt_publish.published)
 
 
-async def test_current_option_reflects_foreground_app(
+async def test_current_option_reflects_choice_not_foreground(
     hass: HomeAssistant, online_with_apps, mock_mqtt_subscribe
 ):
+    await hass.services.async_call(
+        "select", "select_option",
+        {"entity_id": SELECT, "option": "Jellyfin"}, blocking=True,
+    )
+    assert hass.states.get(SELECT).state == "Jellyfin"
+    # A foreground-app change must not move the chooser.
     await mock_mqtt_subscribe.deliver(
         TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix", "ts": 2})
     )
     await hass.async_block_till_done()
-    assert hass.states.get(SELECT).state == "Netflix"
+    assert hass.states.get(SELECT).state == "Jellyfin"
 
 
 async def test_enabled_apps_option_narrows_choices(

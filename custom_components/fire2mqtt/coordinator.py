@@ -75,6 +75,8 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         self._device_id = device_id
         self._bus = MqttBus(hass, topic_prefix, device_id)
         self.data = Fire2MqttData()
+        # Curated app key chosen in the launcher select, launched by the Launch button.
+        self.selected_app_key: str | None = None
 
     @property
     def device_id(self) -> str:

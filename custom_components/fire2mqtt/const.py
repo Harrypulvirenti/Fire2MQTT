@@ -76,6 +76,7 @@ MEDIA_SESSION_STATE_PLAYING = 3
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
+    Platform.BUTTON,
     Platform.MEDIA_PLAYER,
     Platform.REMOTE,
     Platform.SELECT,

@@ -38,6 +38,9 @@ _HA_STATE_MAP = {
     "off": MediaPlayerState.OFF,
 }
 
+# No TURN_ON/TURN_OFF: a sideloaded app can't wake the stick, and the TV powers on via the
+# remote's IR (not CEC from the stick), so a power button here could never work. Control TV
+# power via the TV's own HA integration / an IR blaster instead.
 SUPPORTED_FEATURES = (
     MediaPlayerEntityFeature.PLAY
     | MediaPlayerEntityFeature.PAUSE
@@ -48,8 +51,6 @@ SUPPORTED_FEATURES = (
     | MediaPlayerEntityFeature.VOLUME_MUTE
     | MediaPlayerEntityFeature.VOLUME_STEP
     | MediaPlayerEntityFeature.SELECT_SOURCE
-    | MediaPlayerEntityFeature.TURN_ON
-    | MediaPlayerEntityFeature.TURN_OFF
 )
 
 
@@ -250,9 +251,3 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
                 await self.coordinator.async_launch_app(launch_package)
                 return
         _LOGGER.warning("Fire2MQTT: unknown source '%s'", source)
-
-    async def async_turn_on(self) -> None:
-        await self.coordinator.async_power("wake")
-
-    async def async_turn_off(self) -> None:
-        await self.coordinator.async_power("sleep")

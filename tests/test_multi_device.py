@@ -72,12 +72,12 @@ async def test_commands_target_the_right_device(hass: HomeAssistant, two_devices
     await hass.async_block_till_done()
 
     await hass.services.async_call(
-        "media_player", "turn_off",
+        "media_player", "media_play",
         {"entity_id": "media_player.bedroom_fire_tv"},
         blocking=True,
     )
-    assert (f"{PREFIX}/bedroom/cmd/power", "sleep") in mock_mqtt_publish.published
-    assert all(t != f"{PREFIX}/living_room/cmd/power" for t, _ in mock_mqtt_publish.published)
+    assert (f"{PREFIX}/bedroom/cmd/media", "play") in mock_mqtt_publish.published
+    assert all(t != f"{PREFIX}/living_room/cmd/media" for t, _ in mock_mqtt_publish.published)
 
 
 async def test_devices_registered_separately(hass: HomeAssistant, two_devices, mock_mqtt_subscribe):

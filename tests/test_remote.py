@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 
 from tests.conftest import TOPIC_CMD_KEY, TOPIC_STATUS
 
@@ -65,18 +66,14 @@ async def test_remote_reflects_screen_state(hass: HomeAssistant, online, mock_mq
     assert hass.states.get(REMOTE).state == "off"
 
 
-async def test_remote_turn_on_publishes_wake(hass: HomeAssistant, online, mock_mqtt_publish):
+async def test_remote_power_is_not_supported(hass: HomeAssistant, online, mock_mqtt_publish):
     from tests.conftest import TOPIC_CMD_POWER
 
-    await hass.services.async_call("remote", "turn_on", {"entity_id": REMOTE}, blocking=True)
-    assert (TOPIC_CMD_POWER, "wake") in mock_mqtt_publish.published
-
-
-async def test_remote_turn_off_publishes_sleep(hass: HomeAssistant, online, mock_mqtt_publish):
-    from tests.conftest import TOPIC_CMD_POWER
-
-    await hass.services.async_call("remote", "turn_off", {"entity_id": REMOTE}, blocking=True)
-    assert (TOPIC_CMD_POWER, "sleep") in mock_mqtt_publish.published
+    # Power can't be controlled from the stick — turn_on/off must raise, not silently no-op.
+    for service in ("turn_on", "turn_off"):
+        with pytest.raises(HomeAssistantError):
+            await hass.services.async_call("remote", service, {"entity_id": REMOTE}, blocking=True)
+    assert all(topic != TOPIC_CMD_POWER for topic, _ in mock_mqtt_publish.published)
 
 
 async def test_send_command_num_repeats(hass: HomeAssistant, online, mock_mqtt_publish):

@@ -11,6 +11,7 @@ from homeassistant.components.media_player import (
     ATTR_MEDIA_TITLE,
     ATTR_MEDIA_VOLUME_LEVEL,
     ATTR_MEDIA_VOLUME_MUTED,
+    MediaPlayerEntityFeature,
 )
 from homeassistant.core import HomeAssistant
 
@@ -19,7 +20,6 @@ from tests.conftest import (
     TOPIC_APPS,
     TOPIC_CMD_LAUNCH,
     TOPIC_CMD_MEDIA,
-    TOPIC_CMD_POWER,
     TOPIC_CMD_VOLUME,
     TOPIC_PLAYBACK,
     TOPIC_STATUS,
@@ -137,11 +137,6 @@ async def test_unmute_publishes(hass: HomeAssistant, online, mock_mqtt_publish):
     assert any(p.get("action") == "unmute" for p in volume_publishes)
 
 
-async def test_turn_off_publishes_sleep(hass: HomeAssistant, online, mock_mqtt_publish):
-    await hass.services.async_call("media_player", "turn_off", {"entity_id": ENTITY_ID}, blocking=True)
-    assert any(t == TOPIC_CMD_POWER and p == "sleep" for t, p in mock_mqtt_publish.published)
-
-
 async def test_source_list_lists_only_installed_apps(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(
         TOPIC_APPS, json.dumps({"packages": ["com.netflix.ninja", "org.jellyfin.androidtv"], "ts": 1})
@@ -175,9 +170,11 @@ async def test_aliased_foreground_package_resolves_to_playing(
     assert hass.states.get(ENTITY_ID).state == "playing"
 
 
-async def test_turn_on_publishes_wake(hass: HomeAssistant, online, mock_mqtt_publish):
-    await hass.services.async_call("media_player", "turn_on", {"entity_id": ENTITY_ID}, blocking=True)
-    assert any(t == TOPIC_CMD_POWER and p == "wake" for t, p in mock_mqtt_publish.published)
+async def test_no_power_buttons_exposed(hass: HomeAssistant, online):
+    # The media_player must not advertise TURN_ON/TURN_OFF — the stick can't power the TV.
+    feats = hass.states.get(ENTITY_ID).attributes["supported_features"]
+    assert not (feats & MediaPlayerEntityFeature.TURN_ON)
+    assert not (feats & MediaPlayerEntityFeature.TURN_OFF)
 
 
 async def test_volume_up_publishes_step(hass: HomeAssistant, online, mock_mqtt_publish):
