@@ -12,6 +12,7 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.ConnectionTester
 import dev.harrypulvirenti.fire2mqtt.mqtt.TestResult
 import dev.harrypulvirenti.fire2mqtt.service.Fire2MqttService
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,13 +35,19 @@ class SetupViewModel(
     /** Collected by the Compose UI. */
     val state: StateFlow<SetupUiState>
 
+    /**
+     * The initial DataStore load below. [applyProvisioning] joins it before writing so a slow
+     * first load can't resolve last and clobber the pushed broker config back to the defaults.
+     */
+    private val initialLoad: Job
+
     init {
         // Seed an empty (ready = false) state, then populate off the main thread. The
         // launch splash (MainActivity) stays up until ready = true, so the settings read +
         // Settings.Secure writes + network enumeration below never block the first frame.
         _state = MutableStateFlow(SetupUiState())
         state = _state.asStateFlow()
-        viewModelScope.launch {
+        initialLoad = viewModelScope.launch {
             val s = repository.load() // DataStore reads on its own IO executor
             val snap = permSnapshot()
             _state.value = _state.value.copy(
@@ -145,6 +152,10 @@ class SetupViewModel(
      */
     fun applyProvisioning(config: ProvisioningConfig) {
         viewModelScope.launch {
+            // Wait out the init load first: both write _state with no inherent ordering, and on a
+            // fresh install the init load yields blanks — letting it land last would erase the
+            // pushed config. Joining makes provisioning deterministically win.
+            initialLoad.join()
             repository.applyProvisioning(config)
             val s = repository.load()
             _state.value = _state.value.copy(
