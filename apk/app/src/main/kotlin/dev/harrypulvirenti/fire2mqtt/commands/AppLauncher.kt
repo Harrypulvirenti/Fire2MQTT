@@ -21,7 +21,12 @@ class AppLauncher(private val context: Context) {
      * @return true if the app was launched, false if no such launchable package is installed.
      */
     fun launch(packageName: String): Boolean {
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+        val pm = context.packageManager
+        // Fall back to the leanback (TV) launcher: many Fire TV apps register only a
+        // CATEGORY_LEANBACK_LAUNCHER activity, for which getLaunchIntentForPackage
+        // returns null — the cause of "the button does nothing" for e.g. Crunchyroll.
+        val intent = pm.getLaunchIntentForPackage(packageName)
+            ?: pm.getLeanbackLaunchIntentForPackage(packageName)
             ?: run {
                 logger.w { "No launch intent found for $packageName" }
                 return false

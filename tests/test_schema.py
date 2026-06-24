@@ -10,6 +10,7 @@ import pytest
 from custom_components.fire2mqtt.schema import (
     AppPayload,
     DevicePayload,
+    InstalledAppsPayload,
     PlaybackPayload,
     ScreenPayload,
     VolumePayload,
@@ -141,6 +142,32 @@ class TestAppPayload:
 
 
 # ---------------------------------------------------------------------------
+# InstalledAppsPayload
+# ---------------------------------------------------------------------------
+
+class TestInstalledAppsPayload:
+    def test_basic_round_trip(self):
+        result = InstalledAppsPayload.from_raw(
+            {"packages": ["com.netflix.ninja", "org.jellyfin.androidtv"], "ts": 5}
+        )
+        assert result["packages"] == ["com.netflix.ninja", "org.jellyfin.androidtv"]
+        assert result["ts"] == 5
+
+    def test_missing_packages_default_to_empty_list(self):
+        result = InstalledAppsPayload.from_raw({})
+        assert result["packages"] == []
+        assert result["ts"] == 0
+
+    def test_non_list_packages_coerced_to_empty(self):
+        result = InstalledAppsPayload.from_raw({"packages": "com.netflix.ninja"})
+        assert result["packages"] == []
+
+    def test_non_string_entries_dropped(self):
+        result = InstalledAppsPayload.from_raw({"packages": ["com.netflix.ninja", 7, None]})
+        assert result["packages"] == ["com.netflix.ninja"]
+
+
+# ---------------------------------------------------------------------------
 # ScreenPayload
 # ---------------------------------------------------------------------------
 
@@ -207,7 +234,16 @@ class TestDevicePayload:
         result = DevicePayload.from_raw(mqtt_payloads["device_info"])
         assert result["model"] == "Fire TV Stick 4K"
         assert result["fire_os"] == "8.2.2.1"
-        assert result["schema_version"] == 1
+        assert result["schema_version"] == 2
+        assert result["app_version"] == "0.2.0-beta5"
+        assert result["app_version_code"] == 2
+
+    def test_app_version_defaults_when_absent(self):
+        result = DevicePayload.from_raw(
+            {"model": "x", "fire_os": "1", "ip": "1.2.3.4", "mac": "aa:bb:cc:dd:ee:ff"}
+        )
+        assert result["app_version"] == ""
+        assert result["app_version_code"] == 0
 
     def test_schema_version_mismatch_logs_warning(self, caplog):
         mismatched_version = SCHEMA_VERSION + 99

@@ -6,7 +6,17 @@
     "fire_os": "8.2.2.1",
     "ip": "192.168.1.50",
     "mac": "de:ad:be:ef:00:01",
-    "schema_version": 1
+    "schema_version": 2,
+    "app_version": "0.2.0-beta5",
+    "app_version_code": 2
+  },
+  "installed_apps": {
+    "packages": [
+      "com.netflix.ninja",
+      "com.amazon.avod.thirdpartyclient",
+      "org.jellyfin.androidtv"
+    ],
+    "ts": 1747000000000
   },
   "playback_playing": {
     "media_session_state": 3,

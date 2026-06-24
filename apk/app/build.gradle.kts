@@ -19,8 +19,10 @@ android {
         // compileSdk is ahead of targetSdk on purpose: core/material 1.19/1.14 need API 37
         // to compile, but we don't opt into API-37 runtime behavior changes on Fire OS yet.
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Keep in lockstep with custom_components/fire2mqtt/manifest.json on every release —
+        // HA's update entity compares this versionName against the integration version.
+        versionCode = 2
+        versionName = "0.2.0-beta5"
     }
 
     buildTypes {
@@ -45,6 +47,9 @@ android {
 
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
+        // Let android.jar stubs (e.g. constructing an Intent in InstalledAppsProvider)
+        // return defaults instead of throwing, so pure-JVM unit tests can exercise them.
+        unitTests.isReturnDefaultValues = true
     }
 }
 

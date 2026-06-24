@@ -8,12 +8,13 @@ class TopicSchemaTest {
     private val prefix = "home"
     private val deviceId = "firestick"
 
-    @Test fun schemaVersion() = assertEquals(1, TopicSchema.SCHEMA_VERSION)
+    @Test fun schemaVersion() = assertEquals(2, TopicSchema.SCHEMA_VERSION)
 
     @Test fun status() = assertEquals("home/firestick/status", TopicSchema.status(prefix, deviceId))
     @Test fun stateDevice() = assertEquals("home/firestick/state/device", TopicSchema.stateDevice(prefix, deviceId))
     @Test fun statePlayback() = assertEquals("home/firestick/state/playback", TopicSchema.statePlayback(prefix, deviceId))
     @Test fun stateApp() = assertEquals("home/firestick/state/app", TopicSchema.stateApp(prefix, deviceId))
+    @Test fun stateApps() = assertEquals("home/firestick/state/apps", TopicSchema.stateApps(prefix, deviceId))
     @Test fun stateScreen() = assertEquals("home/firestick/state/screen", TopicSchema.stateScreen(prefix, deviceId))
     @Test fun stateVolume() = assertEquals("home/firestick/state/volume", TopicSchema.stateVolume(prefix, deviceId))
 

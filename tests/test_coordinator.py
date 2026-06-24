@@ -14,6 +14,7 @@ from custom_components.fire2mqtt.const import (
     TOPIC_CMD_POWER,
     TOPIC_CMD_VOLUME,
     TOPIC_STATE_APP,
+    TOPIC_STATE_APPS,
     TOPIC_STATE_DEVICE,
     TOPIC_STATE_PLAYBACK,
     TOPIC_STATE_SCREEN,
@@ -168,7 +169,7 @@ async def test_async_setup_subscribes_all_topics(hass, coordinator):
         await coordinator.async_setup()
 
     expected = {
-        TOPIC_STATUS, TOPIC_STATE_PLAYBACK, TOPIC_STATE_APP,
+        TOPIC_STATUS, TOPIC_STATE_PLAYBACK, TOPIC_STATE_APP, TOPIC_STATE_APPS,
         TOPIC_STATE_SCREEN, TOPIC_STATE_VOLUME, TOPIC_STATE_DEVICE,
     }
     actual = {t.format(prefix="fire2mqtt", device_id="test_device") for t in expected}
@@ -176,7 +177,7 @@ async def test_async_setup_subscribes_all_topics(hass, coordinator):
 
 
 async def test_async_teardown_calls_all_unsubs(hass, coordinator):
-    unsubs = [MagicMock() for _ in range(6)]
+    unsubs = [MagicMock() for _ in range(7)]
     call_iter = iter(unsubs)
 
     async def _subscribe(h, topic, cb):

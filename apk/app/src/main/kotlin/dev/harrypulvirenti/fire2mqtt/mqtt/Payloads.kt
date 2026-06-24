@@ -23,6 +23,13 @@ data class AppPayload(
 )
 
 @Serializable
+data class InstalledAppsPayload(
+    /** Package names of every launchable app installed on the device. */
+    val packages: List<String>,
+    val ts: Long = System.currentTimeMillis(),
+)
+
+@Serializable
 data class ScreenPayload(
     val on: Boolean,
     val ts: Long = System.currentTimeMillis(),
@@ -43,6 +50,9 @@ data class DevicePayload(
     val ip: String,
     val mac: String,
     @SerialName("schema_version") val schemaVersion: Int = TopicSchema.SCHEMA_VERSION,
+    /** The APK's own versionName/versionCode, so HA can detect an out-of-date install. */
+    @SerialName("app_version") val appVersion: String = "",
+    @SerialName("app_version_code") val appVersionCode: Long = 0,
 )
 
 @Serializable

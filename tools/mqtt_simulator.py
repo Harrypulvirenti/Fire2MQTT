@@ -87,7 +87,12 @@ def run_simulation(args):
         "fire_os": "8.2.2.1",
         "ip": "127.0.0.1",
         "mac": "de:ad:be:ef:00:01",
-        "schema_version": 1,
+        "schema_version": 2,
+    })
+    # Installed-apps inventory: everything in APPS except the launcher home.
+    publish(client, args.prefix, args.device_id, "state/apps", {
+        "packages": [a["package"] for a in APPS if a["package"] != "dev.amazon.ignite"],
+        "ts": ts(),
     })
     publish(client, args.prefix, args.device_id, "state/screen", {"on": True, "ts": ts()})
     publish(client, args.prefix, args.device_id, "state/volume", {"level": 8, "max": 15, "mute": False, "ts": ts()})

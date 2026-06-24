@@ -96,14 +96,13 @@ def _build_launch_cmd(component: str, config: BrokerConfig) -> str:
     return " ".join(parts)
 
 
-async def async_provision(
-    hass: HomeAssistant,
-    host: str,
-    config: BrokerConfig,
-    port: int = ADB_PORT,
-) -> ProvisionResult:
-    """Install + grant + launch (with broker config) over ADB. Raises :class:`ProvisionError`."""
-    # Imported lazily so the dependency is only required when provisioning is actually used.
+async def _async_connect_device(hass: HomeAssistant, host: str, port: int):
+    """Open an authenticated ADB connection, mapping failures to :class:`ProvisionError`.
+
+    Shared by the first-time provisioning flow and the later update push. The caller owns
+    closing the returned device.
+    """
+    # Imported lazily so the dependency is only required when ADB is actually used.
     try:
         from adb_shell.adb_device_async import AdbDeviceTcpAsync
         from adb_shell.auth.keygen import keygen
@@ -122,21 +121,54 @@ async def async_provision(
     except (TcpTimeoutException, OSError) as err:
         # Either ADB debugging is off, the host is wrong, or the user hasn't accepted the dialog.
         raise ProvisionError("adb_unreachable", str(err)) from err
+    return device
+
+
+async def _async_install_latest_apk(hass: HomeAssistant, device) -> None:
+    """Download the latest signed APK and ``pm install -r -g`` it onto an open device."""
+    apk = await _async_download_apk(hass)
+    try:
+        await device.push(apk, _REMOTE_APK_PATH)
+        install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
+        if "Success" not in install_out:
+            raise ProvisionError("install_failed", install_out.strip())
+        await device.shell(f"rm -f {_REMOTE_APK_PATH}")
+    finally:
+        await hass.async_add_executor_job(_remove_quietly, apk)
+
+
+async def async_update_apk(
+    hass: HomeAssistant, host: str, port: int = ADB_PORT
+) -> None:
+    """Reinstall the latest APK in place over ADB and relaunch it.
+
+    Used by the HA update entity. No broker config is pushed — the app keeps its settings
+    across an ``install -r`` — and we relaunch so the new build immediately re-publishes
+    ``state/device`` (with the new version). Raises :class:`ProvisionError`.
+    """
+    device = await _async_connect_device(hass, host, port)
+    try:
+        await _async_install_latest_apk(hass, device)
+        await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
+    finally:
+        await device.close()
+
+
+async def async_provision(
+    hass: HomeAssistant,
+    host: str,
+    config: BrokerConfig,
+    port: int = ADB_PORT,
+) -> ProvisionResult:
+    """Install + grant + launch (with broker config) over ADB. Raises :class:`ProvisionError`."""
+    device = await _async_connect_device(hass, host, port)
 
     result = ProvisionResult()
     try:
         if await _async_is_installed(device):
             result.notes.append("APK already installed")
         else:
-            apk = await _async_download_apk(hass)
-            try:
-                await device.push(apk, _REMOTE_APK_PATH)
-                install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
-                if "Success" not in install_out:
-                    raise ProvisionError("install_failed", install_out.strip())
-                await device.shell(f"rm -f {_REMOTE_APK_PATH}")
-            finally:
-                await hass.async_add_executor_job(_remove_quietly, apk)
+            await _async_install_latest_apk(hass, device)
             result.installed = True
 
         # The one unavoidable grant. The app does the rest on launch.

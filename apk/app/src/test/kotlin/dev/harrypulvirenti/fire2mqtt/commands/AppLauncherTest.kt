@@ -36,8 +36,21 @@ class AppLauncherTest {
         verify { context.startActivity(intent) }
     }
 
+    @Test fun `falls back to the leanback launcher when no standard launch intent exists`() {
+        val intent = mockk<Intent>(relaxed = true)
+        every { packageManager.getLaunchIntentForPackage("com.tv.app") } returns null
+        every { packageManager.getLeanbackLaunchIntentForPackage("com.tv.app") } returns intent
+
+        val result = launcher.launch("com.tv.app")
+
+        assertTrue(result)
+        verify { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        verify { context.startActivity(intent) }
+    }
+
     @Test fun `unknown package does not start activity and returns false`() {
         every { packageManager.getLaunchIntentForPackage("com.unknown") } returns null
+        every { packageManager.getLeanbackLaunchIntentForPackage("com.unknown") } returns null
 
         val result = launcher.launch("com.unknown")
 

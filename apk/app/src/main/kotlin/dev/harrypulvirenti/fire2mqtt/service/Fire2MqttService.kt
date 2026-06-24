@@ -16,10 +16,12 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
 import dev.harrypulvirenti.fire2mqtt.mqtt.DevicePayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.Fire2MqttClient
+import dev.harrypulvirenti.fire2mqtt.mqtt.InstalledAppsPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.MqttConfig
 import dev.harrypulvirenti.fire2mqtt.mqtt.ScreenPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
+import dev.harrypulvirenti.fire2mqtt.system.InstalledAppsProvider
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
 import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
@@ -150,6 +152,15 @@ class Fire2MqttService : Service() {
             Json.encodeToString(buildDevicePayload()),
             retain = true,
         )
+        // Installed-apps inventory: lets HA show only the apps actually on the device.
+        // Published once at startup; a service restart re-publishes after install/uninstall.
+        client.publish(
+            TopicSchema.stateApps(prefix, deviceId),
+            Json.encodeToString(
+                InstalledAppsPayload(packages = get<InstalledAppsProvider>().launchablePackages())
+            ),
+            retain = true,
+        )
 
         // Replay every retained topic and re-issue command subscriptions on
         // every (re)connect. HiveMQ fires this on the first CONNACK and after
@@ -247,7 +258,15 @@ class Fire2MqttService : Service() {
         val fireOs = android.os.Build.VERSION.RELEASE
         val ip = getLocalIpAddress()
         val mac = getMacAddress()
-        return DevicePayload(model = model, fireOs = fireOs, ip = ip, mac = mac)
+        val pkg = packageManager.getPackageInfo(packageName, 0)
+        return DevicePayload(
+            model = model,
+            fireOs = fireOs,
+            ip = ip,
+            mac = mac,
+            appVersion = pkg.versionName ?: "",
+            appVersionCode = androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pkg),
+        )
     }
 
     private fun getLocalIpAddress(): String {

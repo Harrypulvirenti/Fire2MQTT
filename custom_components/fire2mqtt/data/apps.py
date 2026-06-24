@@ -15,6 +15,15 @@ class AppInfo:
     friendly_name: str
     category: str
     icon_mdi: str
+    # Extra package names the same app ships under (e.g. an Amazon-appstore Fire TV
+    # build vs the Play build). Any of these counting as "installed"/foreground, but
+    # `package` stays the canonical key for CURATED_RULES and icons.
+    alt_packages: tuple[str, ...] = ()
+
+    @property
+    def packages(self) -> tuple[str, ...]:
+        """Canonical package first, then any known aliases."""
+        return (self.package, *self.alt_packages)
 
 
 CURATED_APPS: dict[str, AppInfo] = {
@@ -98,7 +107,30 @@ CURATED_APPS: dict[str, AppInfo] = {
     ),
 }
 
-# Reverse lookup: package → app key
+# Reverse lookup: every known package (canonical + aliases) → app key
 PACKAGE_TO_KEY: dict[str, str] = {
-    info.package: key for key, info in CURATED_APPS.items()
+    pkg: key for key, info in CURATED_APPS.items() for pkg in info.packages
 }
+
+
+def canonical_package(package: str) -> str:
+    """Map any known alias to the curated canonical package (the key CURATED_RULES
+    uses); pass unknown packages through unchanged. Lets state detection resolve an
+    aliased foreground package (e.g. a Fire-TV-specific build) to its rules."""
+    key = PACKAGE_TO_KEY.get(package)
+    return CURATED_APPS[key].package if key else package
+
+
+def installed_curated(installed: set[str]) -> dict[str, tuple[AppInfo, str]]:
+    """Curated apps that have at least one of their packages installed.
+
+    Returns ``{app_key: (info, launch_package)}`` where ``launch_package`` is the
+    actual installed package to send to ``cmd/launch`` — so an app present under an
+    alias launches the build that's really there.
+    """
+    result: dict[str, tuple[AppInfo, str]] = {}
+    for key, info in CURATED_APPS.items():
+        match = next((pkg for pkg in info.packages if pkg in installed), None)
+        if match is not None:
+            result[key] = (info, match)
+    return result

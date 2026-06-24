@@ -1,7 +1,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "fire2mqtt"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 DEFAULT_TOPIC_PREFIX = "fire2mqtt"
 DEFAULT_IDLE_TIMEOUT = 10  # minutes on launcher before reporting "off"
@@ -43,6 +43,7 @@ EXTRA_USE_TLS = "use_tls"
 GITHUB_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/Harrypulvirenti/Fire2MQTT/releases/latest"
 )
+GITHUB_RELEASES_URL = "https://github.com/Harrypulvirenti/Fire2MQTT/releases"
 
 TOPIC_STATUS = "{prefix}/{device_id}/status"
 TOPIC_STATE_DEVICE = "{prefix}/{device_id}/state/device"
@@ -50,6 +51,7 @@ TOPIC_STATE_PLAYBACK = "{prefix}/{device_id}/state/playback"
 TOPIC_STATE_APP = "{prefix}/{device_id}/state/app"
 TOPIC_STATE_SCREEN = "{prefix}/{device_id}/state/screen"
 TOPIC_STATE_VOLUME = "{prefix}/{device_id}/state/volume"
+TOPIC_STATE_APPS = "{prefix}/{device_id}/state/apps"
 TOPIC_CMD_LAUNCH = "{prefix}/{device_id}/cmd/launch"
 TOPIC_CMD_KEY = "{prefix}/{device_id}/cmd/key"
 TOPIC_CMD_VOLUME = "{prefix}/{device_id}/cmd/volume"
@@ -74,8 +76,9 @@ MEDIA_SESSION_STATE_PLAYING = 3
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
-    Platform.BUTTON,
     Platform.MEDIA_PLAYER,
     Platform.REMOTE,
+    Platform.SELECT,
     Platform.SENSOR,
+    Platform.UPDATE,
 ]
