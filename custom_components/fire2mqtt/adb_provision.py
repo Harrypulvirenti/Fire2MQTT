@@ -44,6 +44,11 @@ _LOGGER = logging.getLogger(__name__)
 _REMOTE_APK_PATH = "/data/local/tmp/fire2mqtt.apk"
 _WRITE_SECURE_SETTINGS = "android.permission.WRITE_SECURE_SETTINGS"
 
+# `pm install -r` refuses to replace an app signed with a different key. This happens
+# whenever the signing key changes (e.g. the old debug-signed builds → the release key).
+# Recovery requires a clean uninstall + fresh install, which wipes the app's stored config.
+_SIGNATURE_MISMATCH_MARKERS = ("signatures do not match", "INSTALL_FAILED_UPDATE_INCOMPATIBLE")
+
 
 class ProvisionError(Exception):
     """Raised when provisioning cannot complete. ``reason`` maps to a config-flow error key."""
@@ -124,32 +129,68 @@ async def _async_connect_device(hass: HomeAssistant, host: str, port: int):
     return device
 
 
-async def _async_install_latest_apk(hass: HomeAssistant, device) -> None:
-    """Download the latest signed APK and ``pm install -r -g`` it onto an open device."""
+async def _async_install_latest_apk(
+    hass: HomeAssistant, device, *, fresh: bool = False
+) -> None:
+    """Download the latest signed APK and install it onto an open device.
+
+    ``fresh=False`` does an in-place ``pm install -r`` (keeps app data). ``fresh=True``
+    uninstalls first then installs clean — needed when the signing key changed, but it
+    wipes the app's stored config, so the caller must re-grant + re-push broker config.
+    A signature-mismatch failure raises ``ProvisionError("signature_mismatch")`` so callers
+    can decide whether to fall back to a fresh reinstall.
+    """
     apk = await _async_download_apk(hass)
     try:
         await device.push(apk, _REMOTE_APK_PATH)
-        install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
+        if fresh:
+            await device.shell(f"pm uninstall {FIRE2MQTT_PACKAGE}")
+            install_out = await device.shell(f"pm install -g {_REMOTE_APK_PATH}")
+        else:
+            install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
         if "Success" not in install_out:
-            raise ProvisionError("install_failed", install_out.strip())
+            reason = (
+                "signature_mismatch"
+                if any(m in install_out for m in _SIGNATURE_MISMATCH_MARKERS)
+                else "install_failed"
+            )
+            raise ProvisionError(reason, install_out.strip())
         await device.shell(f"rm -f {_REMOTE_APK_PATH}")
     finally:
         await hass.async_add_executor_job(_remove_quietly, apk)
 
 
 async def async_update_apk(
-    hass: HomeAssistant, host: str, port: int = ADB_PORT
+    hass: HomeAssistant,
+    host: str,
+    port: int = ADB_PORT,
+    recovery_config: "BrokerConfig | None" = None,
 ) -> None:
-    """Reinstall the latest APK in place over ADB and relaunch it.
+    """Reinstall the latest APK over ADB and relaunch it.
 
-    Used by the HA update entity. No broker config is pushed — the app keeps its settings
-    across an ``install -r`` — and we relaunch so the new build immediately re-publishes
-    ``state/device`` (with the new version). Raises :class:`ProvisionError`.
+    Used by the HA update entity. Normally an in-place ``install -r`` keeps the app's
+    settings, and we relaunch so the new build re-publishes ``state/device`` (with the new
+    version). If the install fails because the signing key changed (``signature_mismatch``)
+    and a ``recovery_config`` is supplied, fall back to a clean uninstall + fresh install,
+    then re-grant WRITE_SECURE_SETTINGS and relaunch with the broker config — since the
+    fresh install wipes the app's stored settings. Raises :class:`ProvisionError`.
     """
     device = await _async_connect_device(hass, host, port)
     try:
-        await _async_install_latest_apk(hass, device)
-        await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
+        try:
+            await _async_install_latest_apk(hass, device)
+            await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
+        except ProvisionError as err:
+            if err.reason != "signature_mismatch" or recovery_config is None:
+                raise
+            # Signing key changed: an in-place update is impossible. Reinstall clean and
+            # re-provision so the device comes back fully configured without user input.
+            _LOGGER.warning(
+                "Fire2MQTT: APK signing key changed; reinstalling fresh and re-provisioning"
+            )
+            await _async_install_latest_apk(hass, device, fresh=True)
+            await device.shell(f"pm grant {FIRE2MQTT_PACKAGE} {_WRITE_SECURE_SETTINGS}")
+            await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, recovery_config))
     finally:
         await device.close()
 

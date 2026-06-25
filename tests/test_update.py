@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -66,7 +66,9 @@ async def test_install_pushes_apk_over_adb_with_device_ip(
         await hass.services.async_call(
             "update", "install", {"entity_id": UPDATE}, blocking=True
         )
-    mock.assert_awaited_once_with(hass, "10.0.0.77", ADB_PORT)
+    # recovery_config is rebuilt from HA's MQTT integration (None when none is set up);
+    # the install must target the IP the device reported, on the ADB port.
+    mock.assert_awaited_once_with(hass, "10.0.0.77", ADB_PORT, recovery_config=ANY)
 
 
 async def test_install_raises_when_ip_unknown(hass: HomeAssistant, online, mock_mqtt_subscribe):

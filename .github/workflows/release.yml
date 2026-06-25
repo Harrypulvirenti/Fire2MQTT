@@ -53,10 +53,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: steps.exists.outputs.exists == 'false'
 
-      - name: Build debug APK
+      - name: Decode signing keystore
+        if: steps.exists.outputs.exists == 'false'
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build signed release APK
         if: steps.exists.outputs.exists == 'false'
         working-directory: apk
-        run: ./gradlew assembleDebug
+        env:
+          # Consumed by app/build.gradle.kts signingConfigs.release.
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
 
       - name: Create GitHub release
         if: steps.exists.outputs.exists == 'false'
@@ -65,7 +75,7 @@ jobs:
         run: |
           tag="${{ steps.v.outputs.tag }}"
           version="${{ steps.v.outputs.version }}"
-          apk=apk/app/build/outputs/apk/debug/app-debug.apk
+          apk=apk/app/build/outputs/apk/release/app-release.apk
           # A hyphen marks a semver pre-release (e.g. 0.2.0-beta3); keep those out
           # of /releases/latest so HACS update detection and the APK download point
           # at the latest *stable* build.

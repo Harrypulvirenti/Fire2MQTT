@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
@@ -8,6 +10,21 @@ plugins {
 kotlin {
     jvmToolchain(17)
 }
+
+// Release signing comes from env vars (CI secrets) or a gitignored
+// keystore.properties (local). A stable key is mandatory: Android rejects an
+// update whose signature differs from the installed one, so debug signing (a
+// per-machine/ephemeral key) made every release uninstallable-over-the-top.
+// When no signing material is present (e.g. a contributor build), the release
+// build falls back to debug signing so `assembleRelease` still works locally.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+fun signingProp(prop: String, env: String): String? =
+    System.getenv(env) ?: keystoreProps.getProperty(prop)
+val releaseStoreFile: String? = signingProp("storeFile", "KEYSTORE_FILE")
+val hasReleaseSigning: Boolean = releaseStoreFile != null && file(releaseStoreFile).exists()
 
 android {
     namespace = "dev.harrypulvirenti.fire2mqtt"
@@ -21,14 +38,29 @@ android {
         targetSdk = 36
         // Keep in lockstep with custom_components/fire2mqtt/manifest.json on every release —
         // HA's update entity compares this versionName against the integration version.
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.4.1"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = signingProp("storePassword", "KEYSTORE_PASSWORD")
+                keyAlias = signingProp("keyAlias", "KEY_ALIAS")
+                keyPassword = signingProp("keyPassword", "KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // R8 is off: proguard-rules.pro is empty and the serialization/Koin/HiveMQ
+            // graph is reflection-heavy, so a shrunk build is untested and would likely
+            // crash. Keep the release APK behaviourally identical to the (working) debug
+            // build — the only intended differences are the stable signature + no debuggable.
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName(if (hasReleaseSigning) "release" else "debug")
         }
     }
 
