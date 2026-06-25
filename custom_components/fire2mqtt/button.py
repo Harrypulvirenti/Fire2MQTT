@@ -64,6 +64,13 @@ class ReprovisionButton(Fire2MqttEntity, ButtonEntity):
     def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
         super().__init__(coordinator, "reprovision")
 
+    @property
+    def available(self) -> bool:
+        # Always available: this is an ADB recovery action that exists precisely for when the
+        # device is offline/unresponsive over MQTT, so it must not inherit the LWT-based
+        # availability. The press handler reports a clear error if the IP isn't known yet.
+        return True
+
     async def async_press(self) -> None:
         host = self.coordinator.data.device_info.get("ip")
         if not host:
