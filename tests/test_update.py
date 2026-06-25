@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -12,8 +13,13 @@ from tests.conftest import TOPIC_DEVICE, TOPIC_STATUS
 
 UPDATE = "update.fire_tv_test_device_app"
 
-# Matches custom_components/fire2mqtt/manifest.json (lockstep with the APK).
-CURRENT_VERSION = "0.2.0-beta5"
+# The update entity reports the integration's own version as latest_version
+# (see update.py). Read it from the manifest so this stays in lockstep across
+# version bumps instead of needing a manual edit every release.
+_MANIFEST = json.loads(
+    (Path(__file__).parents[1] / "custom_components" / "fire2mqtt" / "manifest.json").read_text()
+)
+CURRENT_VERSION = _MANIFEST["version"]
 
 
 def _device(app_version: str | None, ip: str = "10.0.0.50") -> str:
