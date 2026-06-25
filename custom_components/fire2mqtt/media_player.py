@@ -149,7 +149,16 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     @property
     def media_title(self) -> str | None:
-        return self.coordinator.data.playback.get("title")
+        title = self.coordinator.data.playback.get("title")
+        if title:
+            return title
+        # Some Fire TV apps — notably Prime Video — report a playback state but
+        # never populate MediaSession metadata, so no title is ever available.
+        # While media is active, show an explanatory placeholder instead of a
+        # blank/"Unknown" title line.
+        if self.state in (MediaPlayerState.PLAYING, MediaPlayerState.PAUSED):
+            return f"{self.app_name or 'this app'} — no title info"
+        return None
 
     @property
     def media_artist(self) -> str | None:

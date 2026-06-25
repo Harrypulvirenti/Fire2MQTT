@@ -84,6 +84,40 @@ async def test_media_attributes(hass: HomeAssistant, online, mock_mqtt_subscribe
     assert attrs.get(ATTR_MEDIA_POSITION) == 300.0
 
 
+async def test_title_placeholder_when_playing_without_metadata(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """Prime Video (com.amazon.firebat) reports a playing state but no MediaSession
+    metadata. The alias resolves it to the curated rules (→ playing) and the title
+    line falls back to an explanatory placeholder instead of a blank/'Unknown'."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.firebat", "name": "Prime Video"})
+    )
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_PLAYBACK, json.dumps({"media_session_state": 3, "title": None})
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get(ENTITY_ID)
+    assert state.state == "playing"
+    assert state.attributes.get(ATTR_MEDIA_TITLE) == "Prime Video — no title info"
+
+
+async def test_no_title_placeholder_when_idle(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """When nothing is playing, the title stays empty rather than showing a placeholder."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.firebat", "name": "Prime Video"})
+    )
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_PLAYBACK, json.dumps({"media_session_state": 0, "title": None})
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get(ENTITY_ID)
+    assert state.state == "idle"
+    assert state.attributes.get(ATTR_MEDIA_TITLE) is None
+
+
 async def test_volume_level_normalised(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_VOLUME, json.dumps({"level": 6, "max": 15, "mute": False}))
     await hass.async_block_till_done()
