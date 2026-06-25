@@ -69,6 +69,15 @@ async def test_reprovision_pushes_config_over_adb(
     provision.assert_awaited_once_with(hass, "10.0.0.88", config, ADB_PORT)
 
 
+async def test_reprovision_available_when_device_offline(
+    hass: HomeAssistant, setup_integration, mock_mqtt_subscribe
+):
+    # Device is offline (LWT), but the ADB recovery button must stay usable — that's its job.
+    await mock_mqtt_subscribe.deliver(TOPIC_STATUS, "offline")
+    await hass.async_block_till_done()
+    assert hass.states.get(REPROVISION).state != "unavailable"
+
+
 async def test_reprovision_without_device_ip_raises(hass: HomeAssistant, online_with_apps):
     # No state/device delivered → no IP to target.
     with pytest.raises(HomeAssistantError):

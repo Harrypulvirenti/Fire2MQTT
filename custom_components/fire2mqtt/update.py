@@ -43,6 +43,13 @@ class Fire2MqttApkUpdate(Fire2MqttEntity, UpdateEntity):
         self._attr_latest_version = latest_version
 
     @property
+    def available(self) -> bool:
+        # Always available: installing pushes the APK over ADB, which is exactly what you do
+        # when the device is stuck/offline. Don't inherit the LWT-based availability — the
+        # last-reported IP (retained) is enough, and async_install errors clearly if it's absent.
+        return True
+
+    @property
     def installed_version(self) -> str | None:
         """The APK version reported on state/device; None until the device reports it."""
         return self.coordinator.data.device_info.get("app_version") or None
