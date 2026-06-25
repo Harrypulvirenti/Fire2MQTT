@@ -11,6 +11,7 @@ import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.Fire2MqttApp
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
+import dev.harrypulvirenti.fire2mqtt.media.AudioPlaybackWatcher
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
@@ -31,6 +32,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.android.get
@@ -190,6 +192,7 @@ class Fire2MqttService : Service() {
 
         commandRouter = get<CommandRouter> { parametersOf(prefix, deviceId) }
         val mediaWatcher = get<MediaSessionWatcher>()
+        val audioWatcher = get<AudioPlaybackWatcher>()
 
         // All long-lived collectors run as children of pipelineJob via coroutineScope.
         // coroutineScope suspends until every child completes; the flows are infinite
@@ -203,10 +206,15 @@ class Fire2MqttService : Service() {
                 }
             }
 
-            // MediaSession playback events
+            // Playback events: MediaSession metadata/state merged with the
+            // session-independent audio_state, so apps that publish no MediaSession
+            // (e.g. F1 TV) still report playing via active audio playback.
             launch {
-                mediaWatcher.playbackEvents()
-                    .catch { logger.e(it) { "MediaSession error: ${it.message}" } }
+                combine(
+                    mediaWatcher.playbackEvents(),
+                    audioWatcher.audioStateFlow(),
+                ) { playback, audioState -> playback.copy(audioState = audioState) }
+                    .catch { logger.e(it) { "Playback pipeline error: ${it.message}" } }
                     .collect { payload ->
                         client.publish(
                             TopicSchema.statePlayback(prefix, deviceId),

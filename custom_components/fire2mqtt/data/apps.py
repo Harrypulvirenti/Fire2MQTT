@@ -44,6 +44,16 @@ CURATED_APPS: dict[str, AppInfo] = {
         friendly_name="Prime Video",
         category="streaming",
         icon_mdi="mdi:amazon",
+        # Fire TV ships Prime Video as its integrated build, not the third-party
+        # client: newer Fire OS uses com.amazon.firebat (PVFTV-*), older devices
+        # com.amazon.avod. Alias both so foreground detection + rules resolve.
+        alt_packages=("com.amazon.firebat", "com.amazon.avod"),
+    ),
+    "f1_tv": AppInfo(
+        package="com.formulaone.production",
+        friendly_name="F1 TV",
+        category="streaming",
+        icon_mdi="mdi:flag-checkered",
     ),
     "youtube": AppInfo(
         package="com.amazon.firetv.youtube",

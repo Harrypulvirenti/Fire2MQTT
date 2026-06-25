@@ -62,6 +62,7 @@ Published on every MediaSession callback. `media_session_state` intentionally mi
   "album": null,
   "duration_ms": 1380000,
   "position_ms": 240000,
+  "audio_state": "playing",
   "ts": 1747000000000
 }
 ```
@@ -75,6 +76,7 @@ Published on every MediaSession callback. `media_session_state` intentionally mi
 | `album` | string\|null | Album name, or null |
 | `duration_ms` | int\|null | Total duration in milliseconds, or null |
 | `position_ms` | int\|null | Current playback position in milliseconds, or null |
+| `audio_state` | string\|null | `"playing"`/`"idle"` from active audio playback, independent of MediaSession (catches apps that publish no session, e.g. F1 TV). null when unknown |
 | `ts` | int | Unix epoch milliseconds when the APK emitted this payload |
 
 | `media_session_state` | Meaning |
