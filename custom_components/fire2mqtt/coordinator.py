@@ -83,6 +83,11 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         """The user-chosen device slug shared with the APK."""
         return self._device_id
 
+    @property
+    def topic_prefix(self) -> str:
+        """The MQTT topic prefix shared with the APK."""
+        return self._prefix
+
     async def async_setup(self) -> None:
         """Subscribe to all state topics. Called from async_setup_entry."""
         subscriptions = [

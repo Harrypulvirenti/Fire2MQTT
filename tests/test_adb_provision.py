@@ -166,6 +166,56 @@ async def test_update_apk_install_failure_raises(hass: HomeAssistant, _patch_adb
     device.close.assert_awaited_once()
 
 
+async def test_update_apk_signature_mismatch_without_recovery_raises(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    device = _fake_device(
+        {"pm install": "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]"}
+    )
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        with pytest.raises(ProvisionError) as exc:
+            await async_update_apk(hass, "10.0.0.50")  # no recovery_config
+    assert exc.value.reason == "signature_mismatch"
+
+
+async def test_update_apk_signature_mismatch_self_heals_with_recovery(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    # In-place install fails (key changed); the clean fresh install then succeeds.
+    calls: list[str] = []
+
+    async def _shell(cmd: str, *args, **kwargs) -> str:
+        calls.append(cmd)
+        if "pm install -r -g" in cmd:
+            return "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]"
+        if "pm install -g" in cmd:  # fresh install after uninstall
+            return "Success"
+        return ""
+
+    device = _fake_device({})
+    device.shell = AsyncMock(side_effect=_shell)
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        await async_update_apk(hass, "10.0.0.50", recovery_config=_cfg())
+
+    # Recovery path: uninstall → fresh install → re-grant → relaunch with broker extras.
+    assert any(f"pm uninstall {FIRE2MQTT_PACKAGE}" in c for c in calls)
+    assert any("pm install -g" in c for c in calls)
+    assert any(f"pm grant {FIRE2MQTT_PACKAGE}" in c for c in calls)
+    launch = next(c for c in calls if "am start" in c)
+    assert "--es broker_host 192.168.1.10" in launch
+    device.close.assert_awaited_once()
+
+
 # ── pure launch-command builder ───────────────────────────────────────────────
 
 def test_build_launch_cmd_includes_all_extras():
