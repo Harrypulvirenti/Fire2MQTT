@@ -38,6 +38,16 @@ CURATED_RULES: dict[str, list] = {
         "idle",
     ],
 
+    # ── F1 TV ─────────────────────────────────────────────────────────────
+    # F1 TV publishes no MediaSession at all, so media_session_state never
+    # leaves 0. Fall back to audio_state (active audio playback) instead:
+    # "playing" while audio is producing, "idle" otherwise. Pause can't be
+    # distinguished from stop via audio playback, so there's no "paused" rule.
+    "com.formulaone.production": [
+        {"playing": {"audio_state": "playing"}},
+        "idle",
+    ],
+
     # ── YouTube (Fire TV edition) ─────────────────────────────────────────
     # YouTube sets state=3 during buffering; media_player.py coalesces
     # very-short playing→paused→playing cycles into "playing".

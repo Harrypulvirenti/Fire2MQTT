@@ -118,6 +118,35 @@ async def test_no_title_placeholder_when_idle(
     assert state.attributes.get(ATTR_MEDIA_TITLE) is None
 
 
+async def test_f1_tv_playing_via_audio_state(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """F1 TV publishes no MediaSession, so media_session_state stays 0; the audio_state
+    signal drives the playing state instead."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.formulaone.production", "name": "F1 TV"})
+    )
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_PLAYBACK, json.dumps({"media_session_state": 0, "audio_state": "playing"})
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "playing"
+
+
+async def test_f1_tv_idle_when_audio_stops(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """When F1 TV's audio stops (audio_state idle, still no session), state returns to idle."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.formulaone.production", "name": "F1 TV"})
+    )
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_PLAYBACK, json.dumps({"media_session_state": 0, "audio_state": "idle"})
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+
 async def test_volume_level_normalised(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_VOLUME, json.dumps({"level": 6, "max": 15, "mute": False}))
     await hass.async_block_till_done()

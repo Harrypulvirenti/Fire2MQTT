@@ -49,6 +49,12 @@ CURATED_APPS: dict[str, AppInfo] = {
         # com.amazon.avod. Alias both so foreground detection + rules resolve.
         alt_packages=("com.amazon.firebat", "com.amazon.avod"),
     ),
+    "f1_tv": AppInfo(
+        package="com.formulaone.production",
+        friendly_name="F1 TV",
+        category="streaming",
+        icon_mdi="mdi:flag-checkered",
+    ),
     "youtube": AppInfo(
         package="com.amazon.firetv.youtube",
         friendly_name="YouTube",

@@ -12,6 +12,9 @@ data class PlaybackPayload(
     val album: String? = null,
     @SerialName("duration_ms") val durationMs: Long? = null,
     @SerialName("position_ms") val positionMs: Long? = null,
+    // "playing"/"idle" from active audio playback, independent of any MediaSession.
+    // Lets state detection catch apps that never publish a session (e.g. F1 TV).
+    @SerialName("audio_state") val audioState: String? = null,
     val ts: Long = System.currentTimeMillis(),
 )
 

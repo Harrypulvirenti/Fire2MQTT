@@ -26,6 +26,7 @@
     "album": null,
     "duration_ms": 1380000,
     "position_ms": 240000,
+    "audio_state": "playing",
     "ts": 1747000000000
   },
   "playback_paused": {
@@ -36,6 +37,7 @@
     "album": null,
     "duration_ms": 1380000,
     "position_ms": 300000,
+    "audio_state": "idle",
     "ts": 1747000060000
   },
   "playback_idle": {
@@ -46,7 +48,19 @@
     "album": null,
     "duration_ms": null,
     "position_ms": null,
+    "audio_state": "idle",
     "ts": 1747000120000
+  },
+  "playback_audio_only": {
+    "media_session_state": 0,
+    "app": "",
+    "title": null,
+    "artist": null,
+    "album": null,
+    "duration_ms": null,
+    "position_ms": null,
+    "audio_state": "playing",
+    "ts": 1747000180000
   },
   "app_crunchyroll": {
     "package": "com.crunchyroll.crunchyroid",
