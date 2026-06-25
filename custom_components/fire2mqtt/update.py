@@ -68,27 +68,8 @@ class Fire2MqttApkUpdate(Fire2MqttEntity, UpdateEntity):
     async def _async_recovery_config(self):
         """Rebuild the broker config from HA's MQTT integration + this entry, for use when a
         signing-key change forces a clean reinstall. Returns None if no MQTT broker is set up."""
-        from .adb_provision import BrokerConfig
-        from .config_flow import _mqtt_broker_defaults
-        from .const import (
-            CONF_BROKER_HOST,
-            CONF_BROKER_PASSWORD,
-            CONF_BROKER_PORT,
-            CONF_BROKER_USERNAME,
-            DEFAULT_BROKER_PORT,
-        )
+        from .adb_provision import async_recovery_broker_config
 
-        defaults = await _mqtt_broker_defaults(self.hass)
-        host = defaults.get(CONF_BROKER_HOST)
-        if not host:
-            return None
-        port = int(defaults.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT))
-        return BrokerConfig(
-            host=host,
-            port=port,
-            username=defaults.get(CONF_BROKER_USERNAME, ""),
-            password=defaults.get(CONF_BROKER_PASSWORD, ""),
-            device_id=self.coordinator.device_id,
-            topic_prefix=self.coordinator.topic_prefix,
-            use_tls=port == 8883,
+        return await async_recovery_broker_config(
+            self.hass, self.coordinator.device_id, self.coordinator.topic_prefix
         )
