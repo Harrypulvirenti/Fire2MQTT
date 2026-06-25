@@ -4,12 +4,12 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
-import android.os.Handler
-import android.os.Looper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import org.koin.core.annotation.Factory
 
 /**
@@ -30,15 +30,18 @@ class AudioPlaybackWatcher(private val context: Context) {
 
     fun audioStateFlow(): Flow<String> = callbackFlow {
         val callback = object : AudioManager.AudioPlaybackCallback() {
-            override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>) {
+            override fun onPlaybackConfigChanged(configs: List<AudioPlaybackConfiguration>) {
                 trySend(stateOf(configs))
             }
         }
 
+        // flowOn(Main) runs this block on the main looper, so a null handler routes
+        // callbacks there too — no hand-rolled Handler needed. Register before the
+        // initial snapshot so a transition in the gap can't be missed.
+        audio.registerAudioPlaybackCallback(callback, null)
         trySend(stateOf(audio.activePlaybackConfigurations))
-        audio.registerAudioPlaybackCallback(callback, Handler(Looper.getMainLooper()))
         awaitClose { audio.unregisterAudioPlaybackCallback(callback) }
-    }.distinctUntilChanged()
+    }.distinctUntilChanged().flowOn(Dispatchers.Main)
 
     companion object {
         const val PLAYING = "playing"
