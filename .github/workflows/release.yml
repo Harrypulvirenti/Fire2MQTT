@@ -1,0 +1,76 @@
+name: Release
+
+# Cuts a GitHub release whenever a version-bump lands on main. Reading the
+# version from the manifest (rather than triggering on a tag) means the normal
+# "merge a release PR" flow publishes automatically; merges that don't change
+# the version are no-ops because the tag already exists.
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish release when version changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('custom_components/fire2mqtt/manifest.json'))['version'])")
+          # manifest.json and the APK versionName must agree, or HA's update entity breaks.
+          apk_version=$(sed -n 's/.*versionName *= *"\(.*\)".*/\1/p' apk/app/build.gradle.kts)
+          if [ "$version" != "$apk_version" ]; then
+            echo "::error::Version mismatch — manifest=$version apk=$apk_version (keep them in lockstep)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this release already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.v.outputs.tag }} already exists — nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.exists.outputs.exists == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.exists.outputs.exists == 'false'
+
+      - name: Build debug APK
+        if: steps.exists.outputs.exists == 'false'
+        working-directory: apk
+        run: ./gradlew assembleDebug
+
+      - name: Create GitHub release
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.v.outputs.tag }}"
+          version="${{ steps.v.outputs.version }}"
+          apk=apk/app/build/outputs/apk/debug/app-debug.apk
+          # A hyphen marks a semver pre-release (e.g. 0.2.0-beta3); keep those out
+          # of /releases/latest so HACS update detection and the APK download point
+          # at the latest *stable* build.
+          if [ "${version#*-}" != "$version" ]; then
+            gh release create "$tag" "$apk" --title "$tag (Beta)" --generate-notes --prerelease
+          else
+            gh release create "$tag" "$apk" --title "$tag" --generate-notes --latest
+          fi
