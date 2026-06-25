@@ -171,6 +171,10 @@ class SetupViewModel(
                     TextValue.TextResource(R.string.msg_no_broker)
                 else TextValue.TextResource(R.string.msg_not_tested),
             )
+            // A provisioned device should come online unattended — start the service as soon as
+            // we have a broker host, instead of waiting for an on-TV Test → Start. The service's
+            // own connect/retry loop handles reachability.
+            if (s.host.isNotBlank()) launchService()
         }
     }
 
@@ -219,6 +223,16 @@ class SetupViewModel(
 
     fun startService() {
         if (!_state.value.canStart) return
+        launchService()
+    }
+
+    /**
+     * Starts the foreground service without the [SetupUiState.canStart] UI gate (which requires a
+     * prior successful Test Connection). Provisioning uses this so a device configured from Home
+     * Assistant comes online unattended — the service runs its own connect/retry loop, so no
+     * on-TV "Test → Start" step is needed.
+     */
+    private fun launchService() {
         // ContextCompat handles the API < 26 path (plain startService) — minSdk is 25.
         // UI state follows via the Fire2MqttService.running collector in init.
         androidx.core.content.ContextCompat.startForegroundService(

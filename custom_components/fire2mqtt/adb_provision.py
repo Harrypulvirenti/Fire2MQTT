@@ -230,6 +230,40 @@ async def async_provision(
         await device.close()
 
 
+async def async_recovery_broker_config(
+    hass: HomeAssistant, device_id: str, topic_prefix: str
+) -> "BrokerConfig | None":
+    """Rebuild a :class:`BrokerConfig` from HA's MQTT integration plus the given ids.
+
+    Lets the integration re-push broker settings over ADB (update self-heal, manual
+    re-provision) using the same credentials HA already uses — no retyping, no stale
+    hand-entered values. Returns ``None`` when no MQTT broker is configured in HA.
+    """
+    from .config_flow import _mqtt_broker_defaults
+    from .const import (
+        CONF_BROKER_HOST,
+        CONF_BROKER_PASSWORD,
+        CONF_BROKER_PORT,
+        CONF_BROKER_USERNAME,
+        DEFAULT_BROKER_PORT,
+    )
+
+    defaults = await _mqtt_broker_defaults(hass)
+    host = defaults.get(CONF_BROKER_HOST)
+    if not host:
+        return None
+    port = int(defaults.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT))
+    return BrokerConfig(
+        host=host,
+        port=port,
+        username=defaults.get(CONF_BROKER_USERNAME, ""),
+        password=defaults.get(CONF_BROKER_PASSWORD, ""),
+        device_id=device_id,
+        topic_prefix=topic_prefix,
+        use_tls=port == 8883,
+    )
+
+
 async def _async_load_signer(hass: HomeAssistant, keygen, signer_cls):
     """Load (or generate, once) a persistent ADB RSA key so the on-TV dialog appears only once."""
     key_path = hass.config.path(ADB_KEY_FILENAME)
