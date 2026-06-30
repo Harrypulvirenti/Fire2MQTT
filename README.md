@@ -1,15 +1,35 @@
-# Fire2MQTT
+<p align="center">
+  <img src="custom_components/fire2mqtt/brand/icon.png" alt="Fire2MQTT" width="80">
+</p>
 
-**Real-time Fire TV Stick integration for Home Assistant via MQTT.**
+<h1 align="center">Fire2MQTT</h1>
 
-No more polling ADB every 5 seconds. A sideloaded APK on your Fire Stick publishes
-state changes via MQTT the moment they happen — a Home Assistant integration
-subscribes and exposes proper entities. The integration also installs and updates
-the APK for you over ADB, so setup is a single config flow.
+<p align="center"><strong>Real-time Fire TV Stick integration for Home Assistant via MQTT.</strong></p>
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/Harrypulvirenti/Fire2MQTT)](https://github.com/Harrypulvirenti/Fire2MQTT/releases)
-[![HA min version](https://img.shields.io/badge/Home%20Assistant-%E2%89%A52024.12-blue)](https://www.home-assistant.io/)
+<p align="center">
+  No more polling ADB every 5 seconds. A sideloaded APK on your Fire Stick publishes
+  state changes via MQTT the moment they happen — a Home Assistant integration
+  subscribes and exposes proper entities. The integration also installs and updates
+  the APK for you over ADB, so setup is a single config flow.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Harrypulvirenti/Fire2MQTT/actions/workflows/ci.yml">
+    <img src="https://github.com/Harrypulvirenti/Fire2MQTT/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://github.com/Harrypulvirenti/Fire2MQTT/releases">
+    <img src="https://img.shields.io/github/v/release/Harrypulvirenti/Fire2MQTT" alt="GitHub Release">
+  </a>
+  <a href="https://github.com/hacs/integration">
+    <img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS">
+  </a>
+  <a href="https://www.home-assistant.io/">
+    <img src="https://img.shields.io/badge/Home%20Assistant-%E2%89%A52024.12-blue" alt="HA min version">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+</p>
 
 ---
 
@@ -36,6 +56,31 @@ State is **push-only** — the HA integration never polls. Changes arrive in <10
 
 `AudioPlaybackWatcher` catches apps (e.g. F1 TV) that publish audio playback without
 a MediaSession, so they still appear as "playing" in HA.
+
+---
+
+## Screenshots
+
+### Fire TV Stick — app
+
+<!-- Add your screenshot here: save it as docs/images/tv-app.png and replace this comment with:
+![Fire2MQTT app running on a Fire TV Stick](docs/images/tv-app.png) -->
+
+*Screenshot of the Fire2MQTT service app running on your Fire TV Stick — add yours above.*
+
+### Home Assistant — device & entities
+
+<!-- Add your screenshot here: save it as docs/images/ha-device.png and replace this comment with:
+![Fire2MQTT device page in Home Assistant](docs/images/ha-device.png) -->
+
+*Screenshot of the device page in Home Assistant showing all 15 entities — add yours above.*
+
+### Setup flow
+
+<!-- Add your screenshot here: save it as docs/images/ha-setup.png and replace this comment with:
+![Fire2MQTT ADB setup in Home Assistant](docs/images/ha-setup.png) -->
+
+*Screenshot of the one-step ADB install config flow — add yours above.*
 
 ---
 
@@ -186,4 +231,14 @@ pytest tests/
 
 ## License
 
-MIT © [Harry Pulvirenti](https://github.com/harrypulvirenti)
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for the full text.
+
+```
+MIT License — Copyright (c) 2025 Harry Pulvirenti (@harrypulvirenti)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies, subject to the conditions in the LICENSE file.
+```
+
+© 2025 [Harry Pulvirenti](https://github.com/harrypulvirenti)
