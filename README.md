@@ -67,20 +67,6 @@ a MediaSession, so they still appear as "playing" in HA.
 
 *Screenshot of the Fire2MQTT service app running on your Fire TV Stick.*
 
-### Home Assistant — device & entities
-
-<!-- Add your screenshot here: save it as docs/images/ha-device.png and replace this comment with:
-![Fire2MQTT device page in Home Assistant](docs/images/ha-device.png) -->
-
-*Screenshot of the device page in Home Assistant showing all 15 entities — add yours above.*
-
-### Setup flow
-
-<!-- Add your screenshot here: save it as docs/images/ha-setup.png and replace this comment with:
-![Fire2MQTT ADB setup in Home Assistant](docs/images/ha-setup.png) -->
-
-*Screenshot of the one-step ADB install config flow — add yours above.*
-
 ---
 
 ## What you get
