@@ -133,6 +133,12 @@ what's there.
 
 ### Part 1: Install the HA integration (HACS)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Harrypulvirenti&repository=Fire2MQTT&category=Integration)
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=fire2mqtt)
+
+The first button adds Fire2MQTT as a HACS custom repository; the second jumps straight
+to adding the integration once it's installed. Or do both by hand:
+
 1. In HACS → Integrations → ⋮ → Custom repositories → add `https://github.com/Harrypulvirenti/Fire2MQTT` (category: Integration)
 2. Install **Fire2MQTT** and restart Home Assistant
 3. Settings → Devices & Services → Add Integration → search **Fire2MQTT**
