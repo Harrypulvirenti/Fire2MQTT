@@ -63,10 +63,9 @@ a MediaSession, so they still appear as "playing" in HA.
 
 ### Fire TV Stick — app
 
-<!-- Add your screenshot here: save it as docs/images/tv-app.png and replace this comment with:
-![Fire2MQTT app running on a Fire TV Stick](docs/images/tv-app.png) -->
+![Fire2MQTT app running on a Fire TV Stick](docs/images/tv-app.png)
 
-*Screenshot of the Fire2MQTT service app running on your Fire TV Stick — add yours above.*
+*Screenshot of the Fire2MQTT service app running on your Fire TV Stick.*
 
 ### Home Assistant — device & entities
 
