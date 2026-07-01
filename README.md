@@ -31,6 +31,14 @@
   </a>
 </p>
 
+> **Early-stage project, help wanted.** Fire2MQTT works well on the devices it's been
+> tested on, but it hasn't been exercised across the full range of Fire TV models, Fire OS
+> versions, and app builds yet. Some curated app rules, ADB provisioning paths, and
+> recovery flows are lightly tested. If you hit a bug, an app that doesn't detect state
+> correctly, or a Fire TV model that behaves differently, please [open an
+> issue](https://github.com/Harrypulvirenti/Fire2MQTT/issues) or a PR. Testing on more
+> devices and contributions are very welcome.
+
 ---
 
 ## Architecture
