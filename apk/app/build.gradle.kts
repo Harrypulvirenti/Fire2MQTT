@@ -38,8 +38,8 @@ android {
         targetSdk = 36
         // Keep in lockstep with custom_components/fire2mqtt/manifest.json on every release —
         // HA's update entity compares this versionName against the integration version.
-        versionCode = 7
-        versionName = "0.4.3"
+        versionCode = 8
+        versionName = "0.4.4"
     }
 
     signingConfigs {
