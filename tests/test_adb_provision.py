@@ -96,6 +96,12 @@ async def test_provision_already_installed_grants_and_launches(
     launch = next(c.args[0] for c in device.shell.call_args_list if "am start" in c.args[0])
     assert "--es broker_host 192.168.1.10" in launch
     assert "--es device_id living_room" in launch
+    # The notification listener is bound (via the NMS grant API) BEFORE launch, so the app's
+    # MediaSessionWatcher can register on first start — required for media state on Fire OS.
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    allow_idx = next(i for i, c in enumerate(calls) if "cmd notification allow_listener" in c)
+    launch_idx = next(i for i, c in enumerate(calls) if "am start" in c)
+    assert allow_idx < launch_idx
 
 
 async def test_provision_downloads_and_installs_when_missing(
@@ -149,6 +155,11 @@ async def test_update_apk_reinstalls_and_relaunches(hass: HomeAssistant, _patch_
     launch = next(c.args[0] for c in device.shell.call_args_list if "am start" in c.args[0])
     assert FIRE2MQTT_LAUNCH_COMPONENT in launch
     assert "--es" not in launch
+    # The reinstall leaves the listener enabled-but-unbound; it's rebound before the relaunch.
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    allow_idx = next(i for i, c in enumerate(calls) if "cmd notification allow_listener" in c)
+    launch_idx = next(i for i, c in enumerate(calls) if "am start" in c)
+    assert allow_idx < launch_idx
     device.close.assert_awaited_once()
 
 
@@ -207,10 +218,13 @@ async def test_update_apk_signature_mismatch_self_heals_with_recovery(
     ):
         await async_update_apk(hass, "10.0.0.50", recovery_config=_cfg())
 
-    # Recovery path: uninstall → fresh install → re-grant → relaunch with broker extras.
+    # Recovery path: uninstall → fresh install → re-grant → bind listener → relaunch with extras.
     assert any(f"pm uninstall {FIRE2MQTT_PACKAGE}" in c for c in calls)
     assert any("pm install -g" in c for c in calls)
     assert any(f"pm grant {FIRE2MQTT_PACKAGE}" in c for c in calls)
+    allow_idx = next(i for i, c in enumerate(calls) if "cmd notification allow_listener" in c)
+    launch_idx = next(i for i, c in enumerate(calls) if "am start" in c)
+    assert allow_idx < launch_idx
     launch = next(c for c in calls if "am start" in c)
     assert "--es broker_host 192.168.1.10" in launch
     device.close.assert_awaited_once()

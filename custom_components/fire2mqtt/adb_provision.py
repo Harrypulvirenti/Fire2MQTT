@@ -44,6 +44,13 @@ _LOGGER = logging.getLogger(__name__)
 _REMOTE_APK_PATH = "/data/local/tmp/fire2mqtt.apk"
 _WRITE_SECURE_SETTINGS = "android.permission.WRITE_SECURE_SETTINGS"
 
+# The app's NotificationListenerService (see the APK manifest / SecureSettingsManager). Media
+# session access hinges on this being *bound*, which needs the NotificationManagerService grant
+# API — see _async_bind_notification_listener.
+_NOTIFICATION_LISTENER_COMPONENT = (
+    f"{FIRE2MQTT_PACKAGE}/{FIRE2MQTT_PACKAGE}.media.MediaNotificationListener"
+)
+
 # `pm install -r` refuses to replace an app signed with a different key. This happens
 # whenever the signing key changes (e.g. the old debug-signed builds → the release key).
 # Recovery requires a clean uninstall + fresh install, which wipes the app's stored config.
@@ -99,6 +106,35 @@ def _build_launch_cmd(component: str, config: BrokerConfig) -> str:
     for key, value in extras.items():
         parts += ["--es", key, shlex.quote(value)]
     return " ".join(parts)
+
+
+async def _async_bind_notification_listener(device) -> None:
+    """Force Fire OS to (re)bind the app's NotificationListenerService.
+
+    ``MediaSessionManager.getActiveSessions()`` — the whole basis for playback state — requires the
+    listener to be actually *bound*, not merely listed in ``enabled_notification_listeners``. After
+    an in-place reinstall/update Fire OS leaves the entry in place but never rebinds the freshly
+    installed service, so it sits enabled-but-unbound and every ``getActiveSessions()`` throws
+    "Missing permission to control media" (playback shows as stopped even while media plays).
+
+    Nothing the app itself can reach fixes this on Fire OS: a raw ``Settings.Secure`` write (all
+    WRITE_SECURE_SETTINGS allows) does not trigger a rebind, ``requestRebind()`` is a no-op for a
+    never-bound listener, and ``pm`` component toggling is blocked. Only the
+    NotificationManagerService grant API rebinds — which we drive here over ADB. The off→on toggle
+    guarantees a real state change so the framework unbinds then rebinds even when already listed.
+
+    Best-effort: logged but not fatal, so an older Fire OS lacking ``cmd notification`` (or a
+    transient failure) never blocks the rest of provisioning.
+    """
+    try:
+        await device.shell(
+            f"cmd notification disallow_listener {_NOTIFICATION_LISTENER_COMPONENT}"
+        )
+        await device.shell(
+            f"cmd notification allow_listener {_NOTIFICATION_LISTENER_COMPONENT}"
+        )
+    except Exception as err:  # noqa: BLE001 - never let a bind nudge fail provisioning
+        _LOGGER.warning("Fire2MQTT: could not bind notification listener over ADB: %s", err)
 
 
 async def _async_connect_device(hass: HomeAssistant, host: str, port: int):
@@ -179,6 +215,9 @@ async def async_update_apk(
     try:
         try:
             await _async_install_latest_apk(hass, device)
+            # The in-place reinstall leaves the notification listener enabled-but-unbound; rebind
+            # it before relaunching so the app's MediaSessionWatcher re-registers on start.
+            await _async_bind_notification_listener(device)
             await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
         except ProvisionError as err:
             if err.reason != "signature_mismatch" or recovery_config is None:
@@ -190,6 +229,7 @@ async def async_update_apk(
             )
             await _async_install_latest_apk(hass, device, fresh=True)
             await device.shell(f"pm grant {FIRE2MQTT_PACKAGE} {_WRITE_SECURE_SETTINGS}")
+            await _async_bind_notification_listener(device)
             await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, recovery_config))
     finally:
         await device.close()
@@ -221,6 +261,10 @@ async def async_provision(
             # Some Fire OS builds removed WRITE_SECURE_SETTINGS entirely.
             raise ProvisionError("grant_failed", "WRITE_SECURE_SETTINGS not held after grant")
 
+        # Bind the notification listener BEFORE launching: media-session access needs the service
+        # actually bound (not just enabled in the secure setting) on Fire OS, and binding first
+        # means the app's MediaSessionWatcher registers successfully on its very first start.
+        await _async_bind_notification_listener(device)
         # Launch with the broker config as intent extras so the app stores it without the
         # user typing anything on the TV; this also runs SecureSettingsManager.ensureAllEnabled().
         await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, config))
