@@ -119,4 +119,13 @@ CURATED_RULES: dict[str, list] = {
         {"paused": {"media_session_state": 2}},
         "idle",
     ],
+
+    # ── Wholphin (unofficial Jellyfin client) ───────────────────────────
+    # Verified by direct dumpsys media_session observation on 1.0.2.
+    # Session disappears entirely when backing out of the player.
+    "com.github.damontecres.wholphin": [
+        {"playing": {"media_session_state": 3}},
+        {"paused": {"media_session_state": 2}},
+        "idle",
+    ],
 }

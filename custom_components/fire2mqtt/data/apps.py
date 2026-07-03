@@ -115,6 +115,12 @@ CURATED_APPS: dict[str, AppInfo] = {
         category="self_hosted",
         icon_mdi="mdi:kodi",
     ),
+    "wholphin": AppInfo(
+        package="com.github.damontecres.wholphin",
+        friendly_name="Wholphin",
+        category="self_hosted",
+        icon_mdi="mdi:dolphin",
+    ),
 }
 
 # Reverse lookup: every known package (canonical + aliases) → app key
