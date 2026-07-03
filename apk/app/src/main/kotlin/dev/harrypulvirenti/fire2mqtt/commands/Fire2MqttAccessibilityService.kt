@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,10 +41,7 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val pkg = event.packageName?.toString() ?: return
-        // Ignore our own UI and obvious non-app windows (system UI / IME overlays).
-        if (pkg == packageName || pkg.isBlank()) return
+        val pkg = event?.let { decideForegroundPackage(it, packageName, windows) } ?: return
         foregroundPackagesMutable.tryEmit(pkg)
     }
 
@@ -85,6 +83,44 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
 
         private fun dpadAction(action: Int, sdkInt: Int): Int? =
             if (sdkInt >= Build.VERSION_CODES.R) action else null
+
+        /**
+         * The full decision behind [onAccessibilityEvent]: which package (if any) counts as a
+         * genuine foreground-app change. Pulled out as a pure function — taking the event,
+         * this service's own package name, and the current window list as plain arguments —
+         * so the exact logic the override runs in production is what gets exercised in tests,
+         * not a reimplementation of it. Returns null when the event should be ignored.
+         */
+        internal fun decideForegroundPackage(
+            event: AccessibilityEvent,
+            ownPackageName: String,
+            windows: List<AccessibilityWindowInfo>?,
+        ): String? {
+            if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return null
+            val pkg = event.packageName?.toString() ?: return null
+            // Ignore our own UI and obvious non-app windows (system UI / IME overlays).
+            if (pkg == ownPackageName || pkg.isBlank()) return null
+            // Quick-settings panels, System UI chrome, and IME popups fire this same event type
+            // but aren't app switches — e.g. a player's captions/audio overlay on top of the app
+            // that's actually still playing. Only trust windows the framework tags as
+            // TYPE_APPLICATION.
+            if (!isApplicationWindow(event.windowId, windows)) return null
+            return pkg
+        }
+
+        /**
+         * True unless the window list positively identifies [windowId] as non-application
+         * chrome (TYPE_SYSTEM, TYPE_INPUT_METHOD, TYPE_ACCESSIBILITY_OVERLAY, …). Requires
+         * `flagRetrieveInteractiveWindows`; if the window list is unavailable we allow the
+         * event through rather than silently dropping all foreground-app detection.
+         */
+        internal fun isApplicationWindow(
+            windowId: Int,
+            windows: List<AccessibilityWindowInfo>?,
+        ): Boolean {
+            val window = windows?.firstOrNull { it.id == windowId } ?: return true
+            return window.type == AccessibilityWindowInfo.TYPE_APPLICATION
+        }
 
         // Buffered (replay=1) so a late collector still sees the current foreground app.
         private val foregroundPackagesMutable = MutableSharedFlow<String>(
