@@ -121,7 +121,7 @@ what's there.
 
 ## Prerequisites
 
-- **Fire TV Stick** running Fire OS 7+ (Android 7.1+)
+- **Fire TV Stick** running Android 7.1+ (Fire OS 6 and newer)
 - **ADB debugging enabled** on the stick: Settings → My Fire TV → Developer Options → ADB Debugging ON
 - **MQTT broker**, e.g. the [Mosquitto broker add-on](https://github.com/home-assistant/addons/tree/master/mosquitto). Fire2MQTT does not run its own broker.
 - **Home Assistant ≥ 2024.12** with the [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) already configured

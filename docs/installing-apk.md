@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Fire TV Stick with Fire OS 7+ (Android 7.1+)
+- Fire TV Stick with Android 7.1+ (Fire OS 6 and newer)
 - ADB enabled on the Fire Stick (Settings → My Fire TV → Developer Options → ADB Debugging ON)
 - ADB installed on your computer (only for the manual path below)
 
