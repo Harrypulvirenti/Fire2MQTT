@@ -71,6 +71,12 @@ The contract is defined in **three places that must stay in sync**:
   - **Foreground-app detection runs on the AccessibilityService** (`Fire2MqttAccessibilityService.foregroundPackages`, fed by `TYPE_WINDOW_STATE_CHANGED`), **not** `UsageStatsManager`. `PACKAGE_USAGE_STATS` was dropped — it's an appop and can't be self-granted.
   - The app self-enables its accessibility + notification-listener access via `SecureSettingsManager` (writes `Settings.Secure`), which requires **`WRITE_SECURE_SETTINGS`** — granted once with `adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS`. That single grant is the only manual ADB step; the integration's provisioning step can do it for you. Don't reintroduce the crashing `Settings.ACTION_*` intents.
 
+## Git workflow
+
+**Never push directly to `main`.** Always commit to a branch and open a PR, even for small changes — no exceptions unless the user explicitly says to push to main for that specific change. This includes release version-bump commits: cut a `release/vX.Y.Z` branch, PR it, and only merge with explicit go-ahead.
+
+When merging a release PR, hand-write the GitHub release notes to reflect what actually changed (features, fixes) instead of relying on `--generate-notes`/the default "What's Changed" list — that only picks up merged PR titles, so it silently drops anything that isn't its own PR title.
+
 ## Using the knowledge graph (graphify)
 
 **Check the prebuilt graph first.** A knowledge graph of this repo is committed in `graphify-out/` — start with `graphify-out/GRAPH_REPORT.md` (hub nodes, cross-module connections, surprising links) and open `graphify-out/graph.html` in a browser for the interactive view. For "how does X work / what connects to Y / trace the flow through Z" questions, query the graph instead of grepping cold:
