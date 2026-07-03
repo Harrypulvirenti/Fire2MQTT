@@ -4,4 +4,5 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="0"
     android:canPerformGestures="true"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
     android:description="@string/app_name" />
