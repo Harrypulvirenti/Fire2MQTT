@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/Harrypulvirenti/Fire2MQTT/issues",
   "loggers": ["adb_shell"],
   "requirements": ["adb-shell[async]>=0.4.4"],
-  "version": "0.4.5"
+  "version": "0.4.6"
 }
