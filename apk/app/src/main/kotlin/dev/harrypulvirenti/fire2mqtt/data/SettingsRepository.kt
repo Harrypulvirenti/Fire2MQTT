@@ -71,9 +71,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPassword(value: String) = set(KEY_PASSWORD, value)
 
-    suspend fun setDeviceId(value: String) = set(KEY_DEVICE_ID, value)
+    /**
+     * Slugified the same way Home Assistant's config flow slugifies device names
+     * (lowercase, non-alphanumeric runs collapsed to `_`, no leading/trailing `_`) so a
+     * hand-typed device ID here can't silently diverge from what HA subscribes to.
+     */
+    suspend fun setDeviceId(value: String) = set(KEY_DEVICE_ID, value.slugify())
 
-    suspend fun setTopicPrefix(value: String) = set(KEY_TOPIC_PREFIX, value)
+    suspend fun setTopicPrefix(value: String) = set(KEY_TOPIC_PREFIX, value.trim())
 
     /** Stored as "true"/"false" to keep every key string-typed (matches the legacy format). */
     suspend fun setUseTls(value: Boolean) = set(KEY_USE_TLS, value.toString())
@@ -117,3 +122,6 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_USE_TLS      = "false"
     }
 }
+
+internal fun String.slugify(): String =
+    lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')

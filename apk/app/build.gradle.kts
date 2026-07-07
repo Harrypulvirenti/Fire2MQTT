@@ -32,7 +32,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.harrypulvirenti.fire2mqtt"
-        minSdk = 25         // Fire OS 7 (Android 7.1)
+        minSdk = 25         // Android 7.1 (Fire OS 6 and newer)
         // compileSdk is ahead of targetSdk on purpose: core/material 1.19/1.14 need API 37
         // to compile, but we don't opt into API-37 runtime behavior changes on Fire OS yet.
         targetSdk = 36

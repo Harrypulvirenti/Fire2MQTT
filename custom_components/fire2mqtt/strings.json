@@ -11,7 +11,17 @@
       },
       "manual_install": {
         "title": "Sideload the app yourself",
-        "description": "Install the Fire2MQTT APK on your Fire TV, open it, and in the app enter your **MQTT broker** address, an **existing broker username/password**, and a **device ID**.\n\nQuick sideload over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nThe device ID you set in the app must match the one you enter on the next screen. Submit when the app is installed and running.",
+        "description": "Build the Fire2MQTT APK (or use a prebuilt release) and sideload it over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nLaunch the app once it's installed, then submit.",
+        "data": {}
+      },
+      "manual_grant_permissions": {
+        "title": "Grant permissions over ADB",
+        "description": "Fire OS hides Accessibility/Notification-listener toggles from sideloaded apps. Grant **`WRITE_SECURE_SETTINGS`** once and the app enables them itself:\n```\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS\n```\n\nIf this fails with `error: device offline`, your ADB-over-Wi-Fi connection went stale — run `adb disconnect <fire-tv-ip>:5555`, then `adb connect <fire-tv-ip>:5555` again, and confirm `adb devices -l` shows `device` (not `offline`) before retrying the grant command.\n\nSubmit once the grant succeeds.",
+        "data": {}
+      },
+      "manual_configure_app": {
+        "title": "Configure the app on your Fire TV",
+        "description": "In the Fire2MQTT app's settings screen, enter your **MQTT broker** address, an **existing broker username/password**, and a **device ID**.\n\nThe app normalizes whatever device ID you type to match Home Assistant's format (lowercase, digits, and underscores only) — check the app's on-screen topic preview and note the exact value shown, since you'll need to enter that same device ID on the next screen.\n\nSubmit once the app is configured and running.",
         "data": {}
       },
       "config": {
@@ -54,12 +64,13 @@
     "error": {
       "invalid_device_id": "Device ID must only contain lowercase letters, digits, and underscores.",
       "invalid_topic_prefix": "Topic prefix may only contain letters, digits, underscores, dashes, and inner slashes (no MQTT wildcards).",
-      "apk_not_reachable": "The APK did not respond on the status topic. Check the APK is running and the device ID matches. You can proceed anyway — state will populate when the APK comes online. Check 'Continue anyway' to proceed.",
+      "apk_not_reachable": "No response on `{status_topic}`. This almost always means the device ID or topic prefix here doesn't exactly match what you entered in the app — check for a typo or case difference against the app's topic preview. Once you've confirmed the app is running and configured correctly, check 'Continue anyway' to proceed; state will populate when it comes online.",
       "already_configured": "This device is already configured.",
       "adb_unreachable": "Could not reach the Fire TV over ADB. Enable ADB Debugging in Developer Options and check the IP address.",
       "adb_auth": "The Fire TV rejected the connection. Accept the authorization dialog on the TV and try again.",
       "adb_unavailable": "The ADB client could not be loaded. Restart Home Assistant after the integration finishes installing its dependency.",
       "install_failed": "The APK failed to install. {detail}",
+      "signature_mismatch": "The installed app was signed with a different key than this APK. Uninstall the existing app (adb uninstall dev.harrypulvirenti.fire2mqtt) and try again.",
       "grant_failed": "WRITE_SECURE_SETTINGS could not be granted on this Fire OS build. You'll need to enable permissions manually.",
       "download_failed": "Could not download the APK from GitHub releases. {detail}",
       "no_apk_asset": "The latest GitHub release has no APK attached."

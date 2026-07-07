@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Fire TV Stick with Fire OS 7+ (Android 7.1+)
+- Fire TV Stick with Android 7.1+ (Fire OS 6 and newer)
 - ADB enabled on the Fire Stick (Settings → My Fire TV → Developer Options → ADB Debugging ON)
 - ADB installed on your computer (only for the manual path below)
 
@@ -77,6 +77,11 @@ on:
 >
 > A few Fire OS builds have `WRITE_SECURE_SETTINGS` removed by Amazon. If the grant doesn't stick, the app
 > can't self-enable and these features stay off.
+>
+> If the `pm grant` command fails with `error: device offline`, your ADB-over-Wi-Fi connection went stale
+> (common after spending time in the app UI between commands). Run `adb disconnect <fire-tv-ip>:5555`, then
+> `adb connect <fire-tv-ip>:5555` again, and confirm `adb devices -l` shows `device` (not `offline`) before
+> retrying the grant command.
 
 ### 6. Start the service
 
@@ -84,9 +89,12 @@ Tap **Start Service** in the app, or reboot the Fire Stick (the service auto-sta
 
 ### 7. Verify
 
-On your broker, subscribe to all topics:
+Subscribe to the **exact** prefix/device ID you entered in both the app and HA — not a
+broad `fire2mqtt/#` — so a typo or case mismatch between the two fails this check instead
+of silently passing (a wildcard subscription still shows traffic even if HA is listening
+on a different topic):
 ```bash
-mosquitto_sub -h 192.168.1.10 -t "fire2mqtt/#" -v
+mosquitto_sub -h 192.168.1.10 -t "fire2mqtt/living_room_fire_tv/#" -v
 ```
 
 You should see `fire2mqtt/<device_id>/status: online` and `state/device` within a few seconds.

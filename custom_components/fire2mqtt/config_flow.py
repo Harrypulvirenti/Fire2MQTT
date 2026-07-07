@@ -134,18 +134,43 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_manual_install(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
-        """Acknowledge a manual sideload, then move on to collecting config."""
+        """Acknowledge the APK is built, sideloaded, and launched."""
         if user_input is not None:
-            return await self.async_step_config()
+            return await self.async_step_manual_grant_permissions()
 
         return self.async_show_form(
             step_id="manual_install",
             data_schema=vol.Schema({}),
         )
 
+    async def async_step_manual_grant_permissions(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Acknowledge WRITE_SECURE_SETTINGS has been granted over ADB."""
+        if user_input is not None:
+            return await self.async_step_manual_configure_app()
+
+        return self.async_show_form(
+            step_id="manual_grant_permissions",
+            data_schema=vol.Schema({}),
+        )
+
+    async def async_step_manual_configure_app(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Acknowledge the app is configured with broker + device ID, then collect config."""
+        if user_input is not None:
+            return await self.async_step_config()
+
+        return self.async_show_form(
+            step_id="manual_configure_app",
+            data_schema=vol.Schema({}),
+        )
+
     async def async_step_config(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Collect device name/ID/topic prefix and create the entry (post-install)."""
         errors: dict[str, str] = {}
+        status_topic = ""
 
         if user_input is not None:
             device_id = user_input[CONF_DEVICE_ID]
@@ -162,6 +187,7 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 apk_online = await self._check_apk_reachable(prefix, device_id)
                 if not apk_online:
                     errors["base"] = "apk_not_reachable"
+                    status_topic = TOPIC_STATUS.format(prefix=prefix, device_id=device_id)
                     # Non-fatal: user can continue, state will populate when APK starts
                     if user_input.get("_force_continue"):
                         errors = {}
@@ -196,7 +222,8 @@ class Fire2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "mqtt_schema_url": "https://github.com/Harrypulvirenti/Fire2MQTT/blob/main/docs/mqtt-schema.md"
+                "mqtt_schema_url": "https://github.com/Harrypulvirenti/Fire2MQTT/blob/main/docs/mqtt-schema.md",
+                "status_topic": status_topic,
             },
         )
 
