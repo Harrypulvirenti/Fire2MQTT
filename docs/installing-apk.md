@@ -77,6 +77,11 @@ on:
 >
 > A few Fire OS builds have `WRITE_SECURE_SETTINGS` removed by Amazon. If the grant doesn't stick, the app
 > can't self-enable and these features stay off.
+>
+> If the `pm grant` command fails with `error: device offline`, your ADB-over-Wi-Fi connection went stale
+> (common after spending time in the app UI between commands). Run `adb disconnect <fire-tv-ip>:5555`, then
+> `adb connect <fire-tv-ip>:5555` again, and confirm `adb devices -l` shows `device` (not `offline`) before
+> retrying the grant command.
 
 ### 6. Start the service
 

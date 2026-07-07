@@ -83,13 +83,16 @@ PROVISION_INPUT = {
 # ── config flow ──────────────────────────────────────────────────────────────
 
 async def _advance_to_config_form(hass: HomeAssistant) -> str:
-    """Drive user (install-choice menu) → manual_install → config form; return flow_id."""
+    """Drive user (install-choice menu) → manual_install → manual_grant_permissions →
+    manual_configure_app → config form; return flow_id."""
     with _patch_mqtt_client():
         await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
         await hass.config_entries.flow.async_configure(
             flow_id, user_input={"next_step_id": "manual_install"}
         )
+        await hass.config_entries.flow.async_configure(flow_id, user_input={})
+        await hass.config_entries.flow.async_configure(flow_id, user_input={})
         result = await hass.config_entries.flow.async_configure(flow_id, user_input={})
     assert result["type"] == "form"
     assert result["step_id"] == "config"
@@ -113,6 +116,31 @@ async def test_aborts_when_mqtt_not_configured(hass: HomeAssistant):
         )
     assert result["type"] == "abort"
     assert result["reason"] == "mqtt_not_configured"
+
+
+async def test_manual_install_leads_to_grant_permissions_form(hass: HomeAssistant):
+    with _patch_mqtt_client():
+        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+        await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"next_step_id": "manual_install"}
+        )
+        result = await hass.config_entries.flow.async_configure(flow_id, user_input={})
+    assert result["type"] == "form"
+    assert result["step_id"] == "manual_grant_permissions"
+
+
+async def test_grant_permissions_leads_to_configure_app_form(hass: HomeAssistant):
+    with _patch_mqtt_client():
+        await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        flow_id = list(hass.config_entries.flow.async_progress())[0]["flow_id"]
+        await hass.config_entries.flow.async_configure(
+            flow_id, user_input={"next_step_id": "manual_install"}
+        )
+        await hass.config_entries.flow.async_configure(flow_id, user_input={})
+        result = await hass.config_entries.flow.async_configure(flow_id, user_input={})
+    assert result["type"] == "form"
+    assert result["step_id"] == "manual_configure_app"
 
 
 async def test_manual_install_leads_to_config_form(hass: HomeAssistant):
@@ -150,6 +178,9 @@ async def test_apk_not_reachable_shows_error(hass: HomeAssistant):
         )
     assert result["type"] == "form"
     assert result["errors"].get("base") == "apk_not_reachable"
+    assert result["description_placeholders"]["status_topic"] == (
+        f"{DEFAULT_TOPIC_PREFIX}/living_room/status"
+    )
 
 
 async def test_force_continue_bypasses_apk_error(hass: HomeAssistant):
