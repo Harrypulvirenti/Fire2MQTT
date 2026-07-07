@@ -84,9 +84,12 @@ Tap **Start Service** in the app, or reboot the Fire Stick (the service auto-sta
 
 ### 7. Verify
 
-On your broker, subscribe to all topics:
+Subscribe to the **exact** prefix/device ID you entered in both the app and HA — not a
+broad `fire2mqtt/#` — so a typo or case mismatch between the two fails this check instead
+of silently passing (a wildcard subscription still shows traffic even if HA is listening
+on a different topic):
 ```bash
-mosquitto_sub -h 192.168.1.10 -t "fire2mqtt/#" -v
+mosquitto_sub -h 192.168.1.10 -t "fire2mqtt/living_room_fire_tv/#" -v
 ```
 
 You should see `fire2mqtt/<device_id>/status: online` and `state/device` within a few seconds.

@@ -60,6 +60,7 @@
       "adb_auth": "The Fire TV rejected the connection. Accept the authorization dialog on the TV and try again.",
       "adb_unavailable": "The ADB client could not be loaded. Restart Home Assistant after the integration finishes installing its dependency.",
       "install_failed": "The APK failed to install. {detail}",
+      "signature_mismatch": "The installed app was signed with a different key than this APK. Uninstall the existing app (adb uninstall dev.harrypulvirenti.fire2mqtt) and try again.",
       "grant_failed": "WRITE_SECURE_SETTINGS could not be granted on this Fire OS build. You'll need to enable permissions manually.",
       "download_failed": "Could not download the APK from GitHub releases. {detail}",
       "no_apk_asset": "The latest GitHub release has no APK attached."
