@@ -44,6 +44,13 @@ _LOGGER = logging.getLogger(__name__)
 _REMOTE_APK_PATH = "/data/local/tmp/fire2mqtt.apk"
 _WRITE_SECURE_SETTINGS = "android.permission.WRITE_SECURE_SETTINGS"
 
+# The device is opened with a short 9s default per-read timeout (see _async_connect_device) so an
+# unreachable device / ADB-off / unaccepted dialog fails fast. But `pm install` on Fire OS verifies
+# + installs a multi-MB package and emits no output until it finishes (10-40s typical) — well past
+# 9s — and the APK push can be slow on a busy network. Give just those slow calls their own generous
+# read/transport timeout so the install doesn't spuriously time out mid-flight.
+_INSTALL_TIMEOUT_S = 180.0
+
 # The app's NotificationListenerService (see the APK manifest / SecureSettingsManager). Media
 # session access hinges on this being *bound*, which needs the NotificationManagerService grant
 # API — see _async_bind_notification_listener.
@@ -176,14 +183,22 @@ async def _async_install_latest_apk(
     A signature-mismatch failure raises ``ProvisionError("signature_mismatch")`` so callers
     can decide whether to fall back to a fresh reinstall.
     """
+    # adb-shell raises TcpTimeoutException (imported lazily elsewhere) when a read outlives its
+    # timeout. Even with the generous _INSTALL_TIMEOUT_S below, a genuinely stuck install should
+    # surface as a clean ProvisionError rather than a raw adb-shell error the update entity can't map.
+    from adb_shell.exceptions import TcpTimeoutException
+
+    # Slow ops (push + pm install/uninstall) get the long per-read timeout; connect/probe reads
+    # elsewhere keep the short 9s default so an unreachable device still fails fast.
+    slow = {"transport_timeout_s": _INSTALL_TIMEOUT_S, "read_timeout_s": _INSTALL_TIMEOUT_S}
     apk = await _async_download_apk(hass)
     try:
-        await device.push(apk, _REMOTE_APK_PATH)
+        await device.push(apk, _REMOTE_APK_PATH, **slow)
         if fresh:
-            await device.shell(f"pm uninstall {FIRE2MQTT_PACKAGE}")
-            install_out = await device.shell(f"pm install -g {_REMOTE_APK_PATH}")
+            await device.shell(f"pm uninstall {FIRE2MQTT_PACKAGE}", **slow)
+            install_out = await device.shell(f"pm install -g {_REMOTE_APK_PATH}", **slow)
         else:
-            install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}")
+            install_out = await device.shell(f"pm install -r -g {_REMOTE_APK_PATH}", **slow)
         if "Success" not in install_out:
             reason = (
                 "signature_mismatch"
@@ -192,6 +207,8 @@ async def _async_install_latest_apk(
             )
             raise ProvisionError(reason, install_out.strip())
         await device.shell(f"rm -f {_REMOTE_APK_PATH}")
+    except TcpTimeoutException as err:
+        raise ProvisionError("install_timeout", str(err)) from err
     finally:
         await hass.async_add_executor_job(_remove_quietly, apk)
 

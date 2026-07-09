@@ -2,12 +2,23 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 import pytest
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 PREFIX = "fire2mqtt"
+
+
+async def _settle(hass: HomeAssistant) -> None:
+    """Advance past the media_player state debounce so a pending transition commits."""
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+    await hass.async_block_till_done()
 
 
 def _entry(hass: HomeAssistant, device_id: str, title: str) -> MockConfigEntry:
@@ -61,6 +72,7 @@ async def test_state_is_isolated_per_device(hass: HomeAssistant, two_devices, mo
         json.dumps({"media_session_state": 3, "title": "Show"}),
     )
     await hass.async_block_till_done()
+    await _settle(hass)
 
     assert hass.states.get("media_player.bedroom_fire_tv").state == "playing"
     assert hass.states.get("media_player.living_room_fire_tv").state == "idle"

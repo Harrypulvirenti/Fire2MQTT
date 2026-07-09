@@ -38,6 +38,15 @@ _HA_STATE_MAP = {
     "off": MediaPlayerState.OFF,
 }
 
+# Some apps — notably Prime Video — churn a single MediaSession through a burst of transient
+# states while a title starts or an ad→content boundary passes (observed:
+# BUFFERING→NONE→STOPPED→PLAYING flipping every 0.3–0.9s, while genuine playing/paused segments
+# last several seconds). Reported raw, that bounces the entity's state and retriggers automations.
+# So we debounce: a computed state must hold for this long before it's committed; a bounce back to
+# the already-committed state cancels the pending change. Kept short so real play/pause still feels
+# responsive but every sub-second flicker is absorbed.
+_STATE_DEBOUNCE_SECONDS = 1.5
+
 # No TURN_ON/TURN_OFF: a sideloaded app can't wake the stick, and the TV powers on via the
 # remote's IR (not CEC from the stick), so a power button here could never work. Control TV
 # power via the TV's own HA integration / an IR blaster instead.
@@ -84,9 +93,15 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         self._package_since: datetime.datetime | None = None
         self._last_package: str | None = None
         self._cancel_standby_timer: CALLBACK_TYPE | None = None
+        # Debounced state machine: `_committed_state` is what HA sees; `_pending_state` is a
+        # candidate waiting out the settle window before it's committed (see _debounce_state).
+        self._committed_state: MediaPlayerState | None = None
+        self._pending_state: MediaPlayerState | None = None
+        self._cancel_state_debounce: CALLBACK_TYPE | None = None
 
     async def async_will_remove_from_hass(self) -> None:
         self._cancel_standby()
+        self._cancel_debounce()
         await super().async_will_remove_from_hass()
 
     @callback
@@ -96,6 +111,7 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
             self._last_package = package
             self._package_since = dt_util.utcnow()
             self._schedule_standby_check(package)
+        self._debounce_state()
         super()._handle_coordinator_update()
 
     def _cancel_standby(self) -> None:
@@ -112,11 +128,53 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
         @callback
         def _expired(_now: datetime.datetime) -> None:
+            # The launcher has been idle long enough to be STANDBY; run it through the same
+            # debounce path so the transition is committed consistently with every other one.
             self._cancel_standby_timer = None
-            self.async_write_ha_state()
+            self._debounce_state()
 
         self._cancel_standby_timer = async_call_later(
             self.hass, self._idle_timeout.total_seconds(), _expired
+        )
+
+    def _cancel_debounce(self) -> None:
+        if self._cancel_state_debounce is not None:
+            self._cancel_state_debounce()
+            self._cancel_state_debounce = None
+
+    def _debounce_state(self) -> None:
+        """Drive the debounced state machine toward the latest raw state.
+
+        Commits immediately on first render; otherwise a new target must stay put for
+        ``_STATE_DEBOUNCE_SECONDS`` before it becomes the committed state, and a bounce back to the
+        already-committed value cancels the pending change — so sub-second flicker never surfaces.
+        """
+        raw = self._raw_state()
+        if self._committed_state is None:
+            self._committed_state = raw
+            return
+        if raw == self._committed_state:
+            # Never left, or bounced straight back: drop any pending transition.
+            self._cancel_debounce()
+            self._pending_state = None
+            return
+        if raw == self._pending_state:
+            # Already counting down toward this exact target; let the timer finish.
+            return
+
+        self._pending_state = raw
+        self._cancel_debounce()
+
+        @callback
+        def _commit(_now: datetime.datetime) -> None:
+            self._cancel_state_debounce = None
+            if self._pending_state is not None:
+                self._committed_state = self._pending_state
+                self._pending_state = None
+                self.async_write_ha_state()
+
+        self._cancel_state_debounce = async_call_later(
+            self.hass, _STATE_DEBOUNCE_SECONDS, _commit
         )
 
     def _get_rules(self, package: str) -> list:
@@ -127,8 +185,9 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
             return self._user_rules[canonical]
         return CURATED_RULES.get(canonical, ["idle"])
 
-    @property
-    def state(self) -> MediaPlayerState:
+    def _raw_state(self) -> MediaPlayerState:
+        """State implied by the latest payloads, before debouncing — a pure read of coordinator
+        data. ``_debounce_state`` turns this into the committed state the entity actually reports."""
         # Explicit screen-off report wins: the stick is asleep.
         if self.coordinator.data.screen.get("on") is False:
             return MediaPlayerState.OFF
@@ -146,6 +205,14 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         rules = self._get_rules(current_package)
         detected = evaluate(rules, playback)
         return _HA_STATE_MAP.get(detected or "idle", MediaPlayerState.IDLE)
+
+    @property
+    def state(self) -> MediaPlayerState:
+        # The debounced state (see _debounce_state). Commit the raw value lazily on first render so
+        # a freshly-added entity reports immediately instead of waiting for the next update.
+        if self._committed_state is None:
+            self._committed_state = self._raw_state()
+        return self._committed_state
 
     @property
     def media_title(self) -> str | None:
