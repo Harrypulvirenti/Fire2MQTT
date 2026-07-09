@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 import pytest
 from homeassistant.components.media_player import (
@@ -14,6 +15,8 @@ from homeassistant.components.media_player import (
     MediaPlayerEntityFeature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from tests.conftest import (
     TOPIC_APP,
@@ -27,6 +30,15 @@ from tests.conftest import (
 )
 
 ENTITY_ID = "media_player.fire_tv_test_device"
+
+
+async def _settle(hass: HomeAssistant) -> None:
+    """Advance past the media_player state debounce so a pending transition commits.
+
+    The entity holds a state change for ~1.5s before reporting it (see _STATE_DEBOUNCE_SECONDS),
+    so tests asserting a settled state fire the pending timer first."""
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+    await hass.async_block_till_done()
 
 
 @pytest.fixture
@@ -51,6 +63,7 @@ async def test_state_playing(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"}))
     await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3, "title": "Stranger Things", "artist": None, "album": None, "duration_ms": 3600000, "position_ms": 600000}))
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "playing"
 
 
@@ -58,6 +71,7 @@ async def test_state_paused(hass: HomeAssistant, online, mock_mqtt_subscribe):
     await mock_mqtt_subscribe.deliver(TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"}))
     await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 2, "title": "Stranger Things", "artist": None, "album": None, "duration_ms": 3600000, "position_ms": 600000}))
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "paused"
 
 
@@ -97,6 +111,7 @@ async def test_title_placeholder_when_playing_without_metadata(
         TOPIC_PLAYBACK, json.dumps({"media_session_state": 3, "title": None})
     )
     await hass.async_block_till_done()
+    await _settle(hass)
     state = hass.states.get(ENTITY_ID)
     assert state.state == "playing"
     assert state.attributes.get(ATTR_MEDIA_TITLE) == "Prime Video — no title info"
@@ -130,6 +145,7 @@ async def test_f1_tv_playing_via_audio_state(
         TOPIC_PLAYBACK, json.dumps({"media_session_state": 0, "audio_state": "playing"})
     )
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "playing"
 
 
@@ -230,7 +246,74 @@ async def test_aliased_foreground_package_resolves_to_playing(
     await mock_mqtt_subscribe.deliver(TOPIC_APP, json.dumps({"package": alias, "name": "Netflix"}))
     await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "playing"
+
+
+async def test_debounce_absorbs_transient_flap(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """Prime-style churn: playing→idle→playing within the settle window must never surface as a
+    flap. The entity stays on its committed state until the raw state settles, then commits once."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.firebat", "name": "Prime Video"})
+    )
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    # A burst mirroring the real capture: BUFFERING(=3) → NONE(=0) → PLAYING(=3), all sub-window.
+    for st in (3, 0, 3):
+        await mock_mqtt_subscribe.deliver(
+            TOPIC_PLAYBACK, json.dumps({"media_session_state": st, "title": None})
+        )
+        await hass.async_block_till_done()
+    # Nothing has settled yet — no premature "playing" during the churn.
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    # With PLAYING as the settled value, it commits exactly once.
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "playing"
+
+
+async def test_debounce_holds_playing_through_brief_pause(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """A brief paused/idle dip during playback (ad boundary) reverts before the window elapses, so
+    the entity never leaves 'playing'."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"})
+    )
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "playing"
+
+    # paused then back to playing, both under the window → no flap to "paused".
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 2}))
+    await hass.async_block_till_done()
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "playing"
+
+
+async def test_debounce_commits_sustained_pause(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    """A pause that persists past the window is a real transition and must be reported."""
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"})
+    )
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "playing"
+
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 2}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "paused"
 
 
 async def test_no_power_buttons_exposed(hass: HomeAssistant, online):
@@ -257,10 +340,12 @@ async def test_screen_off_reports_off(hass: HomeAssistant, online, mock_mqtt_sub
 
     await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False, "ts": 1}))
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "off"
 
     await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": True, "ts": 2}))
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state != "off"
 
 
@@ -279,20 +364,18 @@ async def test_media_position_updated_at_from_ts(hass: HomeAssistant, online, mo
 async def test_launcher_reports_idle_then_standby(
     hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
 ):
-    from datetime import timedelta
-
-    from pytest_homeassistant_custom_component.common import async_fire_time_changed
-
     await mock_mqtt_subscribe.deliver(
         TOPIC_APP, json.dumps({"package": "com.amazon.tv.launcher", "name": "Home"})
     )
     await hass.async_block_till_done()
     assert hass.states.get(ENTITY_ID).state == "idle"
 
-    # Default idle timeout is 10 minutes; jump past it.
+    # Default idle timeout is 10 minutes; jump past it. The standby transition then rides the same
+    # state debounce as everything else, so settle before asserting.
     freezer.tick(timedelta(minutes=11))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "standby"
 
     # Leaving the launcher resets standby detection.
@@ -300,4 +383,5 @@ async def test_launcher_reports_idle_then_standby(
         TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"})
     )
     await hass.async_block_till_done()
+    await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "idle"

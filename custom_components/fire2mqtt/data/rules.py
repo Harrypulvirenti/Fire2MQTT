@@ -30,8 +30,10 @@ CURATED_RULES: dict[str, list] = {
     ],
 
     # ── Prime Video ──────────────────────────────────────────────────────
-    # Auto-playing trailers on home screen also set state=3; if app is
-    # foreground and title is empty we stay "idle" (handled in media_player.py).
+    # Prime multiplexes ads + content through one MediaSession and churns it
+    # (BUFFERING→NONE→STOPPED→PLAYING) every few tenths of a second at title
+    # start and ad boundaries; it never populates a title. The sub-second
+    # flicker is smoothed by media_player.py's state debounce, not here.
     "com.amazon.avod.thirdpartyclient": [
         {"playing": {"media_session_state": 3}},
         {"paused": {"media_session_state": 2}},
@@ -49,8 +51,8 @@ CURATED_RULES: dict[str, list] = {
     ],
 
     # ── YouTube (Fire TV edition) ─────────────────────────────────────────
-    # YouTube sets state=3 during buffering; media_player.py coalesces
-    # very-short playing→paused→playing cycles into "playing".
+    # YouTube sets state=3 during buffering; media_player.py's state debounce
+    # coalesces very-short playing→paused→playing cycles into "playing".
     "com.amazon.firetv.youtube": [
         {"playing": {"media_session_state": 3}},
         {"paused": {"media_session_state": 2}},

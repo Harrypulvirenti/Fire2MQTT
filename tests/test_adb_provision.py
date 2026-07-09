@@ -230,6 +230,54 @@ async def test_update_apk_signature_mismatch_self_heals_with_recovery(
     device.close.assert_awaited_once()
 
 
+async def test_update_apk_uses_generous_install_timeout(hass: HomeAssistant, _patch_adb_imports):
+    # pm install streams no output for tens of seconds; the push + install must run with a per-read
+    # timeout well above the 9s connect default, or adb-shell times the read out mid-install.
+    device = _fake_device({"pm install": "Success"})
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        await async_update_apk(hass, "10.0.0.50")
+
+    push_kwargs = device.push.call_args.kwargs
+    assert push_kwargs.get("transport_timeout_s", 0) > 9
+    assert push_kwargs.get("read_timeout_s", 0) > 9
+    install_call = next(c for c in device.shell.call_args_list if "pm install" in c.args[0])
+    assert install_call.kwargs.get("transport_timeout_s", 0) > 9
+    assert install_call.kwargs.get("read_timeout_s", 0) > 9
+
+
+async def test_update_apk_read_timeout_raises_install_timeout(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    # A genuinely stuck install (adb-shell TcpTimeoutException) surfaces as a mappable
+    # ProvisionError("install_timeout"), not the raw adb-shell error the update entity can't map.
+    import sys
+
+    tcp_timeout = sys.modules["adb_shell.exceptions"].TcpTimeoutException
+
+    async def _shell(cmd: str, *args, **kwargs) -> str:
+        if "pm install" in cmd:
+            raise tcp_timeout("Reading from 10.0.0.50:5555 timed out (180.0 seconds)")
+        return ""
+
+    device = _fake_device({})
+    device.shell = AsyncMock(side_effect=_shell)
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/fire2mqtt.apk"),
+    ):
+        with pytest.raises(ProvisionError) as exc:
+            await async_update_apk(hass, "10.0.0.50")
+    assert exc.value.reason == "install_timeout"
+    device.close.assert_awaited_once()
+
+
 # ── pure launch-command builder ───────────────────────────────────────────────
 
 def test_build_launch_cmd_includes_all_extras():
