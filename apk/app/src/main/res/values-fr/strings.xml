@@ -13,8 +13,7 @@
     <string name="field_host_hint">IP ou nom d\'hôte</string>
     <string name="field_host_placeholder">ex. 192.168.1.42</string>
     <string name="field_port">Port</string>
-    <string name="field_port_hint">SELECT pour modifier</string>
-    <string name="field_port_adjust_hint">◂ ▸ pour ajuster</string>
+    <string name="field_port_hint">1–65535</string>
     <string name="field_username">Nom d\'utilisateur</string>
     <string name="field_password">Mot de passe</string>
     <string name="field_device_id">ID de l\'appareil</string>

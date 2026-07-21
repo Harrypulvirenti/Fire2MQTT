@@ -14,8 +14,7 @@
     <string name="field_host_hint">IP or hostname</string>
     <string name="field_host_placeholder">e.g. 192.168.1.42</string>
     <string name="field_port">Port</string>
-    <string name="field_port_hint">SELECT to edit</string>
-    <string name="field_port_adjust_hint">◂ ▸ to adjust</string>
+    <string name="field_port_hint">1–65535</string>
     <string name="field_username">Username</string>
     <string name="field_password">Password</string>
     <string name="field_use_tls">Use TLS (mqtts)</string>

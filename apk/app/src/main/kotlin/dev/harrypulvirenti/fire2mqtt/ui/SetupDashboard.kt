@@ -39,7 +39,7 @@ import dev.harrypulvirenti.fire2mqtt.ui.components.Header
 import dev.harrypulvirenti.fire2mqtt.ui.components.HintBar
 import dev.harrypulvirenti.fire2mqtt.ui.components.PermIcon
 import dev.harrypulvirenti.fire2mqtt.ui.components.PermissionRow
-import dev.harrypulvirenti.fire2mqtt.ui.components.PortStepper
+import dev.harrypulvirenti.fire2mqtt.ui.components.PortField
 import dev.harrypulvirenti.fire2mqtt.ui.components.PrimaryButton
 import dev.harrypulvirenti.fire2mqtt.ui.components.SecondaryButton
 import dev.harrypulvirenti.fire2mqtt.ui.components.TlsToggle
@@ -101,7 +101,7 @@ fun SetupDashboard(
                                 placeholder = stringResource(R.string.field_host_placeholder),
                                 modifier = Modifier.focusRequester(hostFocus),
                             )
-                            PortStepper(state.port, onPortChange)
+                            PortField(state.port, onPortChange)
                             Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                                 CompactField(stringResource(R.string.field_username), state.username,
                                     onUsernameChange, Modifier.weight(1f), optional = true)
