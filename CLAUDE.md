@@ -24,7 +24,7 @@ custom_components/fire2mqtt/      HA integration (Python)
   mqtt_bus.py                     MqttBus — MQTT transport (topic building, subscribe, publish, teardown)
   schema.py                       payload validation models (from_raw coerces + normalizes)
   state_detection.py              pure evaluate() — maps playback payload → HA state string
-  data/apps.py, data/rules.py     CURATED_APPS (13 apps) + CURATED_RULES
+  data/apps.py, data/rules.py     CURATED_APPS (16 apps) + CURATED_RULES
   entity.py, media_player.py, sensor.py, binary_sensor.py, button.py, remote.py
   const.py                        DOMAIN, SCHEMA_VERSION, all topic templates, config keys
 tests/                            pytest suite (HA test harness) + fixtures/mqtt_payloads.json

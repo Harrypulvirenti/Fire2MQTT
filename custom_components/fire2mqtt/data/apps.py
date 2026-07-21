@@ -121,6 +121,12 @@ CURATED_APPS: dict[str, AppInfo] = {
         category="self_hosted",
         icon_mdi="mdi:dolphin",
     ),
+    "nuvio": AppInfo(
+        package="com.nuvio.tv",
+        friendly_name="Nuvio",
+        category="streaming",
+        icon_mdi="mdi:television-play",
+    ),
 }
 
 # Reverse lookup: every known package (canonical + aliases) → app key

@@ -24,7 +24,7 @@ from .const import (
 )
 from .coordinator import Fire2MqttCoordinator
 from .data.apps import canonical_package, installed_curated
-from .data.rules import CURATED_RULES
+from .data.rules import CURATED_RULES, DEFAULT_RULES
 from .entity import Fire2MqttEntity
 from .state_detection import evaluate
 
@@ -183,7 +183,7 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         canonical = canonical_package(package)
         if canonical in self._user_rules:
             return self._user_rules[canonical]
-        return CURATED_RULES.get(canonical, ["idle"])
+        return CURATED_RULES.get(canonical, DEFAULT_RULES)
 
     def _raw_state(self) -> MediaPlayerState:
         """State implied by the latest payloads, before debouncing — a pure read of coordinator
