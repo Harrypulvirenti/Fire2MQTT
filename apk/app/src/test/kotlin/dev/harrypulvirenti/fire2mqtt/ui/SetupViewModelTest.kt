@@ -138,6 +138,24 @@ class SetupViewModelTest {
         coVerify { repository.setPort(8883) }
     }
 
+    @Test fun `updatePort clamps out-of-range values`() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.updatePort(99999)
+        assertEquals(65535, vm.state.value.port)
+        advanceUntilIdle()
+        coVerify { repository.setPort(65535) }
+    }
+
+    @Test fun `updatePort clamps below the minimum`() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.updatePort(0)
+        assertEquals(1, vm.state.value.port)
+        advanceUntilIdle()
+        coVerify { repository.setPort(1) }
+    }
+
     @Test fun `updateUseTls persists and resets connection state`() = runTest(dispatcher) {
         val vm = vm()
         advanceUntilIdle()
@@ -146,6 +164,35 @@ class SetupViewModelTest {
         assertEquals(ConnState.Disconnected, vm.state.value.connection)
         advanceUntilIdle()
         coVerify { repository.setUseTls(true) }
+    }
+
+    @Test fun `enabling TLS on the default plaintext port switches to 8883`() = runTest(dispatcher) {
+        val vm = vm() // SETTINGS has port = 1883, useTls defaults false
+        advanceUntilIdle()
+        vm.updateUseTls(true)
+        assertEquals(8883, vm.state.value.port)
+        advanceUntilIdle()
+        coVerify { repository.setPort(8883) }
+    }
+
+    @Test fun `disabling TLS on the default TLS port switches back to 1883`() = runTest(dispatcher) {
+        coEvery { repository.load() } returns SETTINGS.copy(port = 8883, useTls = true)
+        val vm = vm()
+        advanceUntilIdle()
+        vm.updateUseTls(false)
+        assertEquals(1883, vm.state.value.port)
+        advanceUntilIdle()
+        coVerify { repository.setPort(1883) }
+    }
+
+    @Test fun `enabling TLS on a custom port leaves the port untouched`() = runTest(dispatcher) {
+        coEvery { repository.load() } returns SETTINGS.copy(port = 1234)
+        val vm = vm()
+        advanceUntilIdle()
+        vm.updateUseTls(true)
+        assertEquals(1234, vm.state.value.port)
+        advanceUntilIdle()
+        coVerify(exactly = 0) { repository.setPort(any()) }
     }
 
     // --- applyProvisioning (HA ADB credential injection) ---

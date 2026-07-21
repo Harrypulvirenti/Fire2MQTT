@@ -2,7 +2,7 @@
 import pytest
 
 from custom_components.fire2mqtt.state_detection import evaluate
-from custom_components.fire2mqtt.data.rules import CURATED_RULES
+from custom_components.fire2mqtt.data.rules import CURATED_RULES, DEFAULT_RULES
 
 
 @pytest.mark.parametrize("app,state_int,expected", [
@@ -26,6 +26,8 @@ from custom_components.fire2mqtt.data.rules import CURATED_RULES
     # Twitch has no paused state
     ("tv.twitch.android.app", 3, "playing"),
     ("tv.twitch.android.app", 2, "idle"),  # falls through to idle
+    ("com.nuvio.tv", 3, "playing"),
+    ("com.nuvio.tv", 2, "paused"),
 ])
 def test_curated_rules(app: str, state_int: int, expected: str):
     rules = CURATED_RULES.get(app, ["idle"])
@@ -55,6 +57,20 @@ def test_all_conditions_must_match():
 
 def test_unknown_app_returns_none_without_fallback():
     assert evaluate([], {"media_session_state": 3}) is None
+
+
+@pytest.mark.parametrize("state_int,expected", [
+    (3, "playing"),
+    (2, "paused"),
+    (0, "idle"),
+])
+def test_uncurated_package_gets_default_rules(state_int: int, expected: str):
+    """An uncurated package falls back to DEFAULT_RULES (media_player._get_rules mirrors
+    this lookup), so it gets real playing/paused detection instead of being stuck at idle."""
+    rules = CURATED_RULES.get("com.some.unknown.app", DEFAULT_RULES)
+    assert rules is DEFAULT_RULES
+    result = evaluate(rules, {"media_session_state": state_int})
+    assert result == expected
 
 
 def test_all_curated_apps_have_rules():

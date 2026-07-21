@@ -130,4 +130,23 @@ CURATED_RULES: dict[str, list] = {
         {"paused": {"media_session_state": 2}},
         "idle",
     ],
+
+    # ── Nuvio ────────────────────────────────────────────────────────────
+    # Built on Media3/ExoPlayer; assumed to follow the standard MediaSession
+    # convention like most other curated apps. Not yet verified via dumpsys.
+    "com.nuvio.tv": [
+        {"playing": {"media_session_state": 3}},
+        {"paused": {"media_session_state": 2}},
+        "idle",
+    ],
 }
+
+# Fallback for any foreground package that isn't in CURATED_RULES (and has no user
+# override). Most media apps that publish a MediaSession follow this same
+# playing=3/paused=2 convention, so this gives partial support to uncurated apps
+# instead of leaving them stuck at "idle".
+DEFAULT_RULES: list = [
+    {"playing": {"media_session_state": 3}},
+    {"paused": {"media_session_state": 2}},
+    "idle",
+]

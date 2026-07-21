@@ -109,8 +109,9 @@ class SetupViewModel(
     }
 
     fun updatePort(value: Int) {
-        viewModelScope.launch { repository.setPort(value) }
-        _state.value = _state.value.copy(port = value)
+        val clamped = value.coerceIn(1, 65535)
+        viewModelScope.launch { repository.setPort(clamped) }
+        _state.value = _state.value.copy(port = clamped)
     }
 
     fun updateUsername(value: String) {
@@ -134,12 +135,24 @@ class SetupViewModel(
     }
 
     fun updateUseTls(value: Boolean) {
-        viewModelScope.launch { repository.setUseTls(value) }
-        _state.value = _state.value.copy(
+        val current = _state.value
+        // Auto-switch between the well-known plaintext/TLS default ports, but only when the
+        // current port is one of those defaults — never clobber a deliberately customized port.
+        val newPort = when {
+            value && current.port == PORT_PLAIN_DEFAULT -> PORT_TLS_DEFAULT
+            !value && current.port == PORT_TLS_DEFAULT -> PORT_PLAIN_DEFAULT
+            else -> current.port
+        }
+        viewModelScope.launch {
+            repository.setUseTls(value)
+            if (newPort != current.port) repository.setPort(newPort)
+        }
+        _state.value = current.copy(
             useTls = value,
+            port = newPort,
             // Toggling transport invalidates any prior probe result.
             connection = ConnState.Disconnected,
-            connectionMessage = if (_state.value.host.isBlank())
+            connectionMessage = if (current.host.isBlank())
                 TextValue.TextResource(R.string.msg_no_broker)
             else TextValue.TextResource(R.string.msg_not_tested),
         )
@@ -291,5 +304,10 @@ class SetupViewModel(
             ?.hostAddress ?: "<device-ip>"
     } catch (_: Exception) {
         "<device-ip>"
+    }
+
+    companion object {
+        private const val PORT_PLAIN_DEFAULT = 1883
+        private const val PORT_TLS_DEFAULT = 8883
     }
 }

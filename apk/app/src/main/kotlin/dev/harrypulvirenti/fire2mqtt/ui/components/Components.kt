@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Brush
@@ -424,82 +423,68 @@ private fun EditPip(focused: Boolean) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Port stepper — SELECT to activate, then D-pad left/right adjusts the value.
- * While inactive, left/right pass through so focus can move off the field.
+ * Port field — free-text numeric entry, same SELECT-to-edit pattern as
+ * FieldRow. Bridges SetupUiState's Int port through a local String buffer so
+ * typing (including clearing the field) isn't clobbered by parse/clamp on
+ * every keystroke; the Int commit (and onValueChange call) happens only when
+ * editing ends (Done, Back, or losing focus).
  * ──────────────────────────────────────────────────────────────────────── */
 
 @Composable
-fun PortStepper(value: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun PortField(value: Int, onValueChange: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Fire2MqttTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val focusScale by animateTvFocusScale(focused)
-    var active by remember { mutableStateOf(false) }
-    // Leaving the field (focus lost) always exits edit mode.
-    LaunchedEffect(focused) { if (!focused) active = false }
-    fun step(d: Int) = onChange((value + d).coerceIn(1, 65535))
+    val keyboard = LocalSoftwareKeyboardController.current
+    var editing by remember { mutableStateOf(false) }
+    var text by remember(value) { mutableStateOf(value.toString()) }
 
-    Row(
-        modifier
+    fun commit() {
+        val clamped = (text.toIntOrNull() ?: value).coerceIn(1, 65535)
+        text = clamped.toString()
+        if (clamped != value) onValueChange(clamped)
+    }
+
+    LaunchedEffect(editing) { if (editing) keyboard?.show() else commit() }
+
+    BasicTextField(
+        value = text,
+        onValueChange = { text = it.filter(Char::isDigit).take(5) },
+        singleLine = true,
+        readOnly = !editing,
+        textStyle = Fire2MqttTheme.type.value.copy(color = c.text, textAlign = TextAlign.End),
+        cursorBrush = SolidColor(c.ember),
+        interactionSource = interaction,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { editing = false; keyboard?.hide() }),
+        modifier = modifier
             .fillMaxWidth()
-            .onPreviewKeyEvent { e ->
-                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (e.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { active = !active; true }
-                    Key.Back -> if (active) { active = false; true } else false
-                    Key.DirectionLeft -> if (active) { step(-1); true } else false
-                    Key.DirectionRight -> if (active) { step(1); true } else false
-                    else -> false
-                }
-            }
             .tvFocus(focused, { focusScale }, fieldShape,
-                if (active) c.surface3 else c.surface2,
-                if (active) c.ember.copy(alpha = .6f) else c.line,
+                if (focused) c.surface3 else c.surface2, c.line,
                 c.ember, Fire2MqttTheme.focus.ringWidth)
-            .clickable(interaction, indication = null, role = Role.Button) { active = !active }
+            .editToggle(editing, { editing = it }, { keyboard?.hide() })
+            .onFocusChanged { if (!it.isFocused) editing = false }
             .padding(horizontal = 22.dp, vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.field_port), color = c.text,
-                style = Fire2MqttTheme.type.label)
-            Spacer(Modifier.height(3.dp))
-            val hint = if (active) stringResource(R.string.field_port_adjust_hint)
-                       else stringResource(R.string.field_port_hint)
-            Text(hint.uppercase(), color = if (active) c.ember2 else c.text4,
-                style = Fire2MqttTheme.type.hint)
-        }
-        StepBtn("–", active) { step(-1) }
-        Spacer(Modifier.width(16.dp))
-        Text("$value", color = if (active) c.ember2 else c.text,
-            style = Fire2MqttTheme.type.stepperValue)
-        Spacer(Modifier.width(16.dp))
-        StepBtn("+", active) { step(1) }
-    }
-}
-
-@Composable
-private fun StepBtn(glyph: String, active: Boolean, onClick: () -> Unit) {
-    val c = Fire2MqttTheme.colors
-    Box(
-        Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(11.dp))
-            .background(Color(0x40000000), RoundedCornerShape(11.dp))
-            .border(1.dp, if (active) c.ember.copy(alpha = .45f) else c.line2, RoundedCornerShape(11.dp))
-            // Not a D-pad stop: the stepper row's key handler owns ±; this stays
-            // clickable for pointer/talkback without adding an extra focus target.
-            .focusProperties { canFocus = false }
-            .clickable(role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(glyph, color = if (active) c.ember2 else c.text2, fontSize = 24.sp,
-            fontFamily = JetBrainsMono)
-    }
+        decorationBox = { inner ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.width(200.dp)) {
+                    Text(stringResource(R.string.field_port), color = c.text,
+                        style = Fire2MqttTheme.type.label, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(stringResource(R.string.field_port_hint).uppercase(), color = c.text4,
+                        style = Fire2MqttTheme.type.hint, maxLines = 1)
+                }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { inner() }
+                Spacer(Modifier.width(16.dp))
+                EditPip(focused)
+            }
+        },
+    )
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * TLS toggle — SELECT flips mqtts on/off. Mirrors PortStepper's focus styling.
+ * TLS toggle — SELECT flips mqtts on/off. Mirrors PortField's focus styling.
  * ──────────────────────────────────────────────────────────────────────── */
 
 @Composable
