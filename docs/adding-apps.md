@@ -10,6 +10,47 @@ Both files use the same dict key format and are intentionally compatible with
 
 ---
 
+## Curated apps vs. the fallback rules — do you actually need this?
+
+Any app that publishes a standard Android `MediaSession` already gets a best-effort
+`playing`/`paused`/`idle` state with **zero curation**: `media_player._get_rules()` falls
+back to `DEFAULT_RULES` (`custom_components/fire2mqtt/data/rules.py`) for any package that
+isn't in `CURATED_RULES` — the same `media_session_state` 3 = playing / 2 = paused / else
+idle triplet used by most curated apps. So before spending time on a full curated entry,
+just try the app: if it plays and pauses correctly already, you're done.
+
+What curation on top of that fallback actually buys you:
+
+| Curated-only benefit | Why the fallback can't provide it |
+|---|---|
+| Friendly name + icon in the app-launcher `select` and source list | The fallback has no name/icon metadata — an uncurated app never appears as a pickable/launchable option, even though its live state still reports correctly while it's in the foreground |
+| Verified, app-specific rules | The fallback is a guess. Apps that deviate from the standard convention — no MediaSession at all (F1 TV, keyed off `audio_state` instead), no "paused" state (Twitch, live-only) — need a hand-written rule or they'll misreport |
+| Package aliases (`alt_packages`) | Apps shipped under multiple package names (e.g. Prime Video's Play-Store vs Fire-TV-native builds) only resolve to one set of rules if the aliases are declared in `apps.py` |
+
+If all you want is correct playback state and you don't care about the launcher entry, no
+action is needed — the fallback already covers it. If you want the friendly launcher entry,
+or the app doesn't behave like the standard convention, follow the steps below.
+
+---
+
+## Just want an app added? Open an issue, no PR required
+
+Don't have the time or an ADB setup to verify rules yourself? Open a [GitHub
+issue](https://github.com/Harrypulvirenti/Fire2MQTT/issues) with:
+
+- The app's name and, if you know it, its Android package name (`adb shell pm list packages`
+  or the app's Play Store / Amazon Appstore listing URL)
+- Whether the fallback already gets `playing`/`paused` right for you (see the table above) —
+  if it does, this is just a request for the launcher entry (name/icon), which is quick to add
+- If it *doesn't* detect state correctly: what you observed (e.g. "stuck on idle while
+  playing", "playing never switches to paused")
+
+You don't need to gather `dumpsys` output yourself — that's only required if you want to
+contribute the fix directly (see below). A maintainer (or another contributor) can still pick
+up the issue and do the verification.
+
+---
+
 ## How to discover rules for a new app
 
 ### Step 1 — Find the package name

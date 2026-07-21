@@ -105,17 +105,25 @@ coexist cleanly on one broker.
 
 ### Curated app state detection (schema v2)
 
-Out of the box, correct `playing` / `paused` / `idle` states for 14 apps:
+Out of the box, correct `playing` / `paused` / `idle` states for 16 apps, each with a friendly
+name, icon, and an entry in the app-launcher source list:
 
-**Streaming:** Crunchyroll · Netflix · Prime Video · F1 TV · YouTube · Disney+ · Twitch · Max (HBO) · Apple TV
+**Streaming:** Crunchyroll · Netflix · Prime Video · F1 TV · YouTube · Disney+ · Twitch · Max (HBO) · Apple TV · Nuvio
 
-**Self-hosted:** Jellyfin · Plex · Emby · Kodi
+**Self-hosted:** Jellyfin · Plex · Emby · Kodi · Wholphin
 
 **Music:** Spotify
 
 The `source_list` on your `media_player` entity is populated dynamically from whichever
 of the above apps are actually installed on your stick, so source select only shows
 what's there.
+
+**Any other app** — installed but not in the list above — still gets a best-effort
+`playing`/`paused`/`idle` state for free (most Fire TV apps report a standard Android
+MediaSession, which the fallback rules understand), but won't appear in the app-launcher
+source list or get a friendly name/icon until it's added to the curated database. See
+[docs/adding-apps.md](docs/adding-apps.md) for what curation buys you and how to request
+or contribute an app.
 
 ---
 
@@ -172,7 +180,7 @@ Then open the app on the Fire TV and enter your broker address, username/passwor
 
 After setup, open **Configure** on the integration to adjust:
 
-- **Enabled apps**: choose which of the 14 curated apps appear in the source list and get launch buttons. Useful if you want fewer entities or don't have certain apps installed.
+- **Enabled apps**: choose which of the 16 curated apps appear in the source list and get launch buttons. Useful if you want fewer entities or don't have certain apps installed.
 - **Idle timeout** (1–120 min, default 10 min): how long the stick can sit on the home screen launcher before the media player state switches from `idle` to `standby`.
 - **State detection rules override**: advanced option to supply a custom JSON ruleset that overrides or extends the built-in playback state detection for a specific app.
 - **Reconfigure**: update the MQTT topic prefix without removing and re-adding the device.
@@ -209,8 +217,11 @@ Ready-to-paste automations are in [`examples/automations/`](examples/automations
 
 ## Contributing a new app
 
-See [docs/adding-apps.md](docs/adding-apps.md). The curated rule database is designed
-for future upstream contribution to [python-androidtv](https://github.com/JeffLIrion/python-androidtv).
+Want an app added to the curated list, or already have the package name and observed
+`dumpsys` states handy? See [docs/adding-apps.md](docs/adding-apps.md) — it covers both
+requesting an app (open an issue, no PR needed) and contributing one yourself. The curated
+rule database is designed for future upstream contribution to
+[python-androidtv](https://github.com/JeffLIrion/python-androidtv).
 
 ---
 
