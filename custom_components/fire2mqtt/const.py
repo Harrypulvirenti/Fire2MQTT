@@ -59,7 +59,7 @@ TOPIC_CMD_POWER = "{prefix}/{device_id}/cmd/power"
 TOPIC_CMD_MEDIA = "{prefix}/{device_id}/cmd/media"
 
 # Foreground packages that mean "sitting on the home screen" — used by the
-# media player's idle-timeout logic to report STANDBY after CONF_IDLE_TIMEOUT.
+# media player's idle-timeout logic to report OFF after CONF_IDLE_TIMEOUT.
 LAUNCHER_PACKAGES = frozenset({
     "com.amazon.tv.launcher",
     "com.amazon.firetv.launcher",

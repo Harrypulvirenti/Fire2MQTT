@@ -5,6 +5,7 @@ state_detection_rules schema to enable upstream PR contribution.
 
 Each list is evaluated in order:
   - A plain string ("idle", "standby", "off", "playing", "paused") is an unconditional fallback.
+    ("standby" is kept for format compatibility; the media player reports it as "off".)
   - A dict {"<state>": {<conditions>}} matches only when ALL conditions are satisfied.
     Supported condition keys: media_session_state (int), audio_state (str), wake_lock_size (int).
 

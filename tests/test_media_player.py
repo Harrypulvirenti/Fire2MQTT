@@ -361,7 +361,7 @@ async def test_media_position_updated_at_from_ts(hass: HomeAssistant, online, mo
     assert updated_at.timestamp() == 1747000000.0
 
 
-async def test_launcher_reports_idle_then_standby(
+async def test_launcher_reports_idle_then_off(
     hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
 ):
     await mock_mqtt_subscribe.deliver(
@@ -370,18 +370,28 @@ async def test_launcher_reports_idle_then_standby(
     await hass.async_block_till_done()
     assert hass.states.get(ENTITY_ID).state == "idle"
 
-    # Default idle timeout is 10 minutes; jump past it. The standby transition then rides the same
+    # Default idle timeout is 10 minutes; jump past it. The off transition then rides the same
     # state debounce as everything else, so settle before asserting.
     freezer.tick(timedelta(minutes=11))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     await _settle(hass)
-    assert hass.states.get(ENTITY_ID).state == "standby"
+    assert hass.states.get(ENTITY_ID).state == "off"
 
-    # Leaving the launcher resets standby detection.
+    # Leaving the launcher resets the idle-timeout detection.
     await mock_mqtt_subscribe.deliver(
         TOPIC_APP, json.dumps({"package": "com.netflix.ninja", "name": "Netflix"})
     )
     await hass.async_block_till_done()
     await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "idle"
+
+
+def test_standby_rule_result_maps_to_off():
+    # MediaPlayerState.STANDBY is deprecated in Home Assistant: a "standby" rule result
+    # (python-androidtv rule format, still accepted) must surface as OFF.
+    from homeassistant.components.media_player import MediaPlayerState
+
+    from custom_components.fire2mqtt.media_player import _HA_STATE_MAP
+
+    assert _HA_STATE_MAP["standby"] is MediaPlayerState.OFF

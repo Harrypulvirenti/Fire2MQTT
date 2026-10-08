@@ -8,7 +8,7 @@ happen — Home Assistant subscribes and exposes proper entities. No ADB polling
 
 ## What you get (per Fire Stick)
 
-- **Media player** — playback state (incl. off/standby), title, position, source select, volume, power
+- **Media player** — playback state (incl. idle/off), title, position, source select, volume, power
 - **Sensors** — current app, media title/artist, volume level, IP address
 - **Binary sensors** — screen on/off, APK online/offline
 - **Buttons** — one-tap launch for curated streaming apps
