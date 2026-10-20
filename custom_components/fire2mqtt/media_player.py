@@ -34,7 +34,9 @@ _HA_STATE_MAP = {
     "playing": MediaPlayerState.PLAYING,
     "paused": MediaPlayerState.PAUSED,
     "idle": MediaPlayerState.IDLE,
-    "standby": MediaPlayerState.STANDBY,
+    # MediaPlayerState.STANDBY is deprecated in Home Assistant; a "standby" rule result
+    # (python-androidtv rule format) is reported as OFF.
+    "standby": MediaPlayerState.OFF,
     "off": MediaPlayerState.OFF,
 }
 
@@ -121,14 +123,14 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     def _schedule_standby_check(self, package: str) -> None:
         """When the launcher comes to the foreground, re-render state once the
-        idle timeout elapses so the entity flips to STANDBY without a new message."""
+        idle timeout elapses so the entity flips to OFF without a new message."""
         self._cancel_standby()
         if package not in LAUNCHER_PACKAGES:
             return
 
         @callback
         def _expired(_now: datetime.datetime) -> None:
-            # The launcher has been idle long enough to be STANDBY; run it through the same
+            # The launcher has been idle long enough to be reported OFF; run it through the same
             # debounce path so the transition is committed consistently with every other one.
             self._cancel_standby_timer = None
             self._debounce_state()
@@ -198,7 +200,7 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
                 self._package_since is not None
                 and dt_util.utcnow() - self._package_since >= self._idle_timeout
             ):
-                return MediaPlayerState.STANDBY
+                return MediaPlayerState.OFF
             return MediaPlayerState.IDLE
 
         playback = self.coordinator.data.playback

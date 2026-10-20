@@ -88,7 +88,7 @@
         "title": "Fire2MQTT options",
         "data": {
           "enabled_apps": "App launcher buttons to create",
-          "idle_timeout": "Minutes on the home screen before reporting 'standby'",
+          "idle_timeout": "Minutes on the home screen before reporting 'off'",
           "state_detection_rules_override": "State detection rules override (advanced, JSON)"
         },
         "data_description": {

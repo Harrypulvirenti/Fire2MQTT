@@ -83,7 +83,7 @@ a MediaSession, so they still appear as "playing" in HA.
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `media_player.<device>` | Media Player | Playback state (playing/paused/idle/standby/off), title, position, source select, volume, turn on/off |
+| `media_player.<device>` | Media Player | Playback state (playing/paused/idle/off), title, position, source select, volume, turn on/off |
 | `select.<device>_app_launcher` | Select | Choose which curated app to launch (populated from installed apps on your stick) |
 | `button.<device>_launch_app` | Button | Launch the app selected above |
 | `remote.<device>` | Remote | Key events: HOME, BACK, DPAD_*, MEDIA_*, VOLUME_*, MUTE; turn on/off mirrors screen state |
@@ -184,7 +184,7 @@ Then open the app on the Fire TV and enter your broker address, username/passwor
 After setup, open **Configure** on the integration to adjust:
 
 - **Enabled apps**: choose which of the 16 curated apps appear in the source list and get launch buttons. Useful if you want fewer entities or don't have certain apps installed.
-- **Idle timeout** (1–120 min, default 10 min): how long the stick can sit on the home screen launcher before the media player state switches from `idle` to `standby`.
+- **Idle timeout** (1–120 min, default 10 min): how long the stick can sit on the home screen launcher before the media player state switches from `idle` to `off`.
 - **State detection rules override**: advanced option to supply a custom JSON ruleset that overrides or extends the built-in playback state detection for a specific app.
 - **Reconfigure**: update the MQTT topic prefix without removing and re-adding the device.
 
