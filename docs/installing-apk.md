@@ -53,16 +53,24 @@ In the Fire2MQTT settings screen:
 - **Device ID** — slug that appears in MQTT topics (e.g. `living_room_fire_tv`)
 - **Topic Prefix** — default `fire2mqtt`
 
-### 5. Grant permissions (one ADB command)
+### 5. Grant permissions (ADB)
 
 Fire OS does **not** let a sideloaded app enable Usage Access / Notification Listener / Accessibility from
 any in-app UI — the settings screens don't open and the app isn't listed. Instead, Fire2MQTT enables its
-own permissions once it has **`WRITE_SECURE_SETTINGS`**, which you grant with a single ADB command:
+own permissions once it has **`WRITE_SECURE_SETTINGS`**, and Fire OS needs one extra nudge to actually bind
+the notification listener:
 
 ```bash
 adb connect <fire-tv-ip>:5555
 adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS
+adb shell cmd notification disallow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
+adb shell cmd notification allow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 ```
+
+Without the two `cmd notification` lines the listener is listed as enabled but never bound, so
+`state/playback` is never published (title, artist and play/pause stay `unknown` in HA). The off→on toggle
+forces Fire OS to rebind it; re-run both lines if playback state disappears after a reinstall. The HA
+integration's ADB install and **Re-provision** button run all three commands for you.
 
 The app's **Permissions** screen shows this exact command (with your device's IP). After you run it, return
 to the app and tap **Enable permissions** (or just restart the app) — it writes the secure settings to turn
