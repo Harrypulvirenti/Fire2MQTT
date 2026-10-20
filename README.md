@@ -169,6 +169,9 @@ see [docs/installing-apk.md](docs/installing-apk.md). Short version:
 adb connect 192.168.1.50
 adb install -r apk/app/build/outputs/apk/debug/app-debug.apk
 adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS
+# Bind the notification listener (needed for state/playback):
+adb shell cmd notification disallow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
+adb shell cmd notification allow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 ```
 
 Then open the app on the Fire TV and enter your broker address, username/password
