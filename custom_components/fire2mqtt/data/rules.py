@@ -140,6 +140,15 @@ CURATED_RULES: dict[str, list] = {
         {"paused": {"media_session_state": 2}},
         "idle",
     ],
+
+    # ── Dream Player (Enigma2 / Dreambox receiver client) ────────────────
+    # Assumed to follow the standard MediaSession convention. Not yet
+    # verified via dumpsys; requested in issue #36.
+    "de.cyberdream.dreamepg.tv.player": [
+        {"playing": {"media_session_state": 3}},
+        {"paused": {"media_session_state": 2}},
+        "idle",
+    ],
 }
 
 # Fallback for any foreground package that isn't in CURATED_RULES (and has no user

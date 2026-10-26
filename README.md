@@ -105,12 +105,12 @@ coexist cleanly on one broker.
 
 ### Curated app state detection (schema v2)
 
-Out of the box, correct `playing` / `paused` / `idle` states for 16 apps, each with a friendly
+Out of the box, correct `playing` / `paused` / `idle` states for 17 apps, each with a friendly
 name, icon, and an entry in the app-launcher source list:
 
 **Streaming:** Crunchyroll · Netflix · Prime Video · F1 TV · YouTube · Disney+ · Twitch · Max (HBO) · Apple TV · Nuvio
 
-**Self-hosted:** Jellyfin · Plex · Emby · Kodi · Wholphin
+**Self-hosted:** Jellyfin · Plex · Emby · Kodi · Wholphin · Dream Player
 
 **Music:** Spotify
 
