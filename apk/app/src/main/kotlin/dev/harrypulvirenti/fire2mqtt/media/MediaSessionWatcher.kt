@@ -6,6 +6,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.os.SystemClock
 import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.mqtt.PlaybackPayload
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
@@ -155,6 +156,7 @@ class MediaSessionWatcher(
     private fun buildPayload(controller: MediaController?): PlaybackPayload {
         val state = controller?.playbackState
         val metadata = controller?.metadata
+        val durationMs = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.takeIf { it > 0 }
         return PlaybackPayload(
             mediaSessionState = PlaybackStateMapper.toSchemaInt(
                 state?.state ?: PlaybackState.STATE_NONE
@@ -164,9 +166,17 @@ class MediaSessionWatcher(
             artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                 ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
             album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM),
-            durationMs = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)
-                ?.takeIf { it > 0 },
-            positionMs = state?.position?.takeIf { it >= 0 },
+            durationMs = durationMs,
+            positionMs = state?.takeIf { it.position >= 0 }?.let {
+                PlaybackStateMapper.currentPositionMs(
+                    positionMs = it.position,
+                    lastUpdateElapsedMs = it.lastPositionUpdateTime,
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                    speed = it.playbackSpeed,
+                    androidState = it.state,
+                    durationMs = durationMs,
+                )
+            },
             actions = state?.actions,
         )
     }
