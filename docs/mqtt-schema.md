@@ -63,6 +63,7 @@ Published on every MediaSession callback. `media_session_state` intentionally mi
   "duration_ms": 1380000,
   "position_ms": 240000,
   "audio_state": "playing",
+  "actions": 823,
   "ts": 1747000000000
 }
 ```
@@ -77,6 +78,7 @@ Published on every MediaSession callback. `media_session_state` intentionally mi
 | `duration_ms` | int\|null | Total duration in milliseconds, or null |
 | `position_ms` | int\|null | Current playback position in milliseconds, or null |
 | `audio_state` | string\|null | `"playing"`/`"idle"` from active audio playback, independent of MediaSession (catches apps that publish no session, e.g. F1 TV). null when unknown |
+| `actions` | int\|null | The session's Android `PlaybackState.getActions()` bitmask (e.g. `16` = skip to previous, `32` = skip to next). HA hides next/previous when the bits are absent. Omitted when there's no session or by APKs older than 0.7 |
 | `ts` | int | Unix epoch milliseconds when the APK emitted this payload |
 
 | `media_session_state` | Meaning |

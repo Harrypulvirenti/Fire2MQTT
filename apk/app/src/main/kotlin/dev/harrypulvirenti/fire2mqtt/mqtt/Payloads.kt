@@ -30,6 +30,9 @@ data class PlaybackPayload(
     // "playing"/"idle" from active audio playback, independent of any MediaSession.
     // Lets state detection catch apps that never publish a session (e.g. F1 TV).
     @SerialName("audio_state") val audioState: String? = null,
+    // The session's PlaybackState.getActions() bitmask, so HA can hide controls the app
+    // doesn't support (e.g. next/previous on a Cast session). Null when there's no session.
+    val actions: Long? = null,
     val ts: Long = System.currentTimeMillis(),
 )
 

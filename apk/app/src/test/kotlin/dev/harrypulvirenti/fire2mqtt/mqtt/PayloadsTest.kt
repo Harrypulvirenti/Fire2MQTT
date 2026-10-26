@@ -48,4 +48,9 @@ class PayloadsTest {
         assertFalse(playback.contains("title"), playback)
         assertFalse(playback.contains("null"), playback)
     }
+
+    @Test fun `playback payload carries the session actions mask`() {
+        val json = WireJson.encodeToString(PlaybackPayload(mediaSessionState = 3, actions = 903))
+        assertTrue(json.contains("\"actions\":903"), json)
+    }
 }

@@ -64,6 +64,10 @@ SUPPORTED_FEATURES = (
     | MediaPlayerEntityFeature.SELECT_SOURCE
 )
 
+# Android PlaybackState.ACTION_SKIP_TO_* bits in the playback payload's `actions` mask.
+_ACTION_SKIP_TO_PREVIOUS = 1 << 4
+_ACTION_SKIP_TO_NEXT = 1 << 5
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -221,6 +225,20 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         if self._committed_state is None:
             self._committed_state = self._raw_state()
         return self._committed_state
+
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        # Hide next/previous when the active session says it can't skip (e.g. a Cast session).
+        # No `actions` (older APK, or an app with no session) keeps the full static set.
+        features = self._attr_supported_features
+        actions = self.coordinator.data.playback.get("actions")
+        if actions is None:
+            return features
+        if not actions & _ACTION_SKIP_TO_NEXT:
+            features &= ~MediaPlayerEntityFeature.NEXT_TRACK
+        if not actions & _ACTION_SKIP_TO_PREVIOUS:
+            features &= ~MediaPlayerEntityFeature.PREVIOUS_TRACK
+        return features
 
     @property
     def media_title(self) -> str | None:
