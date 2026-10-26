@@ -13,6 +13,7 @@ import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
 import dev.harrypulvirenti.fire2mqtt.media.AudioPlaybackWatcher
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
+import dev.harrypulvirenti.fire2mqtt.media.PlaybackStateMapper
 import dev.harrypulvirenti.fire2mqtt.mqtt.AppPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.BrokerHostValidator
 import dev.harrypulvirenti.fire2mqtt.mqtt.DevicePayload
@@ -213,7 +214,14 @@ class Fire2MqttService : Service() {
                 combine(
                     mediaWatcher.playbackEvents(),
                     audioWatcher.audioStateFlow(),
-                ) { playback, audioState -> playback.copy(audioState = audioState) }
+                ) { playback, audioState ->
+                    // Restamp so an audio_state-only change doesn't republish the last session
+                    // payload's old ts (and its position stays consistent with the new ts).
+                    PlaybackStateMapper.restamp(
+                        playback.copy(audioState = audioState),
+                        System.currentTimeMillis(),
+                    )
+                }
                     .catch { logger.e(it) { "Playback pipeline error: ${it.message}" } }
                     .collect { payload ->
                         client.publish(
