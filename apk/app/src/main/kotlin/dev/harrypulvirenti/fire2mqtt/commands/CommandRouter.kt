@@ -16,6 +16,7 @@ class CommandRouter(
     @InjectedParam private val deviceId: String,
     private val appLauncher: AppLauncher,
     private val volumeController: VolumeController,
+    private val mediaTransport: MediaTransport,
 ) {
 
     private val keyMap = mapOf(
@@ -48,7 +49,12 @@ class CommandRouter(
             TopicSchema.cmdKey(prefix, deviceId) -> {
                 val keyCode = keyMap[payload.trim().uppercase()]
                 if (keyCode != null) {
-                    Fire2MqttAccessibilityService.sendKey(keyCode)
+                    logger.i { "Key command: ${payload.trim()}" }
+                    if (keyCode in MediaTransport.MEDIA_KEYS) {
+                        sendMediaKey(keyCode)
+                    } else {
+                        Fire2MqttAccessibilityService.sendKey(keyCode)
+                    }
                 } else {
                     logger.w { "Unknown key: $payload" }
                 }
@@ -56,6 +62,7 @@ class CommandRouter(
             TopicSchema.cmdVolume(prefix, deviceId) -> {
                 runCatching {
                     val cmd = Json.decodeFromString<VolumeCommandPayload>(payload)
+                    logger.i { "Volume command: ${cmd.action}${cmd.level?.let { " $it" } ?: ""}" }
                     when (cmd.action) {
                         "set" -> cmd.level?.let { volumeController.set(it) }
                         "up" -> volumeController.stepUp()
@@ -66,9 +73,11 @@ class CommandRouter(
                 }.onFailure { logger.e(it) { "Volume command parse error: ${it.message}" } }
             }
             TopicSchema.cmdPower(prefix, deviceId) -> {
+                logger.i { "Power command: ${payload.trim()}" }
                 when (payload.trim().lowercase()) {
                     "sleep" -> Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_SLEEP)
                     "wake" -> Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_WAKEUP)
+                    else -> logger.w { "Unknown power command: $payload" }
                 }
             }
             TopicSchema.cmdMedia(prefix, deviceId) -> {
@@ -81,9 +90,19 @@ class CommandRouter(
                     "stop" -> KeyEvent.KEYCODE_MEDIA_STOP
                     else -> null
                 }
-                keyCode?.let { Fire2MqttAccessibilityService.sendKey(it) }
-                    ?: logger.w { "Unknown media command: $payload" }
+                if (keyCode != null) {
+                    logger.i { "Media command: ${payload.trim()}" }
+                    sendMediaKey(keyCode)
+                } else {
+                    logger.w { "Unknown media command: $payload" }
+                }
             }
         }
+    }
+
+    // Prefer the foreground app's own session (see MediaTransport); fall back to key dispatch
+    // when no session is readable, e.g. the notification listener isn't bound.
+    private fun sendMediaKey(keyCode: Int) {
+        if (!mediaTransport.send(keyCode)) Fire2MqttAccessibilityService.sendKey(keyCode)
     }
 }

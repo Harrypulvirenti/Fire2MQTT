@@ -2,6 +2,7 @@ package dev.harrypulvirenti.fire2mqtt.di
 
 import android.content.ComponentName
 import android.content.Context
+import dev.harrypulvirenti.fire2mqtt.commands.MediaTransport
 import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
@@ -14,7 +15,7 @@ import org.koin.core.annotation.Single
 
 /**
  * Koin object graph. Most definitions come from class-level annotations
- * (@Single/@Factory/@KoinViewModel) discovered by @ComponentScan. The two factories
+ * (@Single/@Factory/@KoinViewModel) discovered by @ComponentScan. The factories
  * below are declared explicitly because their constructors aren't purely
  * graph-resolvable — annotation generation can't honor Kotlin default values or build
  * a non-graph type like ComponentName.
@@ -32,6 +33,14 @@ class AppModule {
     @Factory
     fun mediaSessionWatcher(context: Context): MediaSessionWatcher =
         MediaSessionWatcher(
+            context,
+            ComponentName(context, MediaNotificationListener::class.java),
+        )
+
+    /** Same ComponentName requirement as MediaSessionWatcher (session access goes through it). */
+    @Factory
+    fun mediaTransport(context: Context): MediaTransport =
+        MediaTransport(
             context,
             ComponentName(context, MediaNotificationListener::class.java),
         )

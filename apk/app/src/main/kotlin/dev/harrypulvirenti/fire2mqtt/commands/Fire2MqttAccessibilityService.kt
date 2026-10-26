@@ -55,7 +55,11 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
             performGlobalAction(it)
             return
         }
-        // Media transport keys still route through the active media session.
+        // Media transport keys still route through the active media session. Anything else
+        // landing here is dropped by MediaSessionService, so say so for field debugging.
+        if (keyCode !in MediaTransport.MEDIA_KEYS) {
+            logger.w { "Key $keyCode has no global action on SDK ${Build.VERSION.SDK_INT}; it will be ignored" }
+        }
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
@@ -73,6 +77,10 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
             KeyEvent.KEYCODE_HOME -> GLOBAL_ACTION_HOME
             KeyEvent.KEYCODE_BACK -> GLOBAL_ACTION_BACK
             KeyEvent.KEYCODE_APP_SWITCH -> GLOBAL_ACTION_RECENTS
+            // KEYCODE_SLEEP can't be injected or sent as a media key; locking the screen is the
+            // closest global action (API 28+) and sends the device to sleep.
+            KeyEvent.KEYCODE_SLEEP ->
+                if (sdkInt >= Build.VERSION_CODES.P) GLOBAL_ACTION_LOCK_SCREEN else null
             KeyEvent.KEYCODE_DPAD_UP -> dpadAction(GLOBAL_ACTION_DPAD_UP, sdkInt)
             KeyEvent.KEYCODE_DPAD_DOWN -> dpadAction(GLOBAL_ACTION_DPAD_DOWN, sdkInt)
             KeyEvent.KEYCODE_DPAD_LEFT -> dpadAction(GLOBAL_ACTION_DPAD_LEFT, sdkInt)
