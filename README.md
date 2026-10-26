@@ -135,6 +135,14 @@ or contribute an app.
 - **Home Assistant ≥ 2024.12** with the [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) already configured
 - **An existing broker username/password**: the Fire TV app connects directly to the broker; HA cannot create broker accounts for you
 
+> **Google TV / Android TV (early support).** The app has been tested on a Google TV
+> Streamer (Android 14) and most things work, but some don't yet. App detection, titles,
+> pause, launching apps, and remote keys all work. Play, stop and volume state don't work
+> reliably yet ([#41](https://github.com/Harrypulvirenti/Fire2MQTT/issues/41)). Android
+> 11+ has no classic network ADB, so before you use **Install automatically over ADB** or
+> **Re-provision**, pair a computer via *Wireless debugging* and run `adb tcpip 5555` once.
+> This setting resets on every reboot.
+
 ---
 
 ## Installation

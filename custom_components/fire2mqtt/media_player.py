@@ -110,9 +110,15 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
     def _handle_coordinator_update(self) -> None:
         package = self.coordinator.data.app.get("package", "")
         if package != self._last_package:
+            # Moving between home-screen packages (launcher <-> screensaver, or the
+            # launcher flicker Google TV emits) keeps the idle clock running.
+            still_home = (
+                package in LAUNCHER_PACKAGES and self._last_package in LAUNCHER_PACKAGES
+            )
             self._last_package = package
-            self._package_since = dt_util.utcnow()
-            self._schedule_standby_check(package)
+            if not still_home:
+                self._package_since = dt_util.utcnow()
+                self._schedule_standby_check(package)
         self._debounce_state()
         super()._handle_coordinator_update()
 

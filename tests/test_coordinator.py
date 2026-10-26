@@ -52,6 +52,25 @@ def test_status_offline_updates_coordinator(coordinator):
     assert coordinator.data.online is False
 
 
+def test_live_state_message_marks_device_online(coordinator):
+    # A stale LWT "offline" can land after the new session's "online" (fast reboot); a live
+    # state message is proof the device is up.
+    coordinator.data.online = False
+    msg = make_msg({"package": "com.netflix.ninja", "name": "Netflix"})
+    msg.retain = False
+    coordinator._on_app(msg)
+    assert coordinator.data.online is True
+
+
+def test_retained_state_message_does_not_mark_online(coordinator):
+    # Retained replays (e.g. on HA startup) say nothing about liveness.
+    coordinator.data.online = False
+    msg = make_msg({"package": "com.netflix.ninja", "name": "Netflix"})
+    msg.retain = True
+    coordinator._on_app(msg)
+    assert coordinator.data.online is False
+
+
 def test_playback_callback_updates_data(coordinator):
     payload = {"media_session_state": 3, "title": "Test Show", "app": "com.netflix.ninja"}
     coordinator._on_playback(make_msg(payload))

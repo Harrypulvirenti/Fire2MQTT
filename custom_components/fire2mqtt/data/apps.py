@@ -1,4 +1,4 @@
-"""Curated app database for Fire TV devices.
+"""Curated app database for Fire TV and Android TV devices.
 
 Each entry maps a short key to metadata used by the integration.
 The `package` field is the authoritative Android package name.
@@ -47,7 +47,12 @@ CURATED_APPS: dict[str, AppInfo] = {
         # Fire TV ships Prime Video as its integrated build, not the third-party
         # client: newer Fire OS uses com.amazon.firebat (PVFTV-*), older devices
         # com.amazon.avod. Alias both so foreground detection + rules resolve.
-        alt_packages=("com.amazon.firebat", "com.amazon.avod"),
+        # Google TV / Android TV ships the "living room" build.
+        alt_packages=(
+            "com.amazon.firebat",
+            "com.amazon.avod",
+            "com.amazon.amazonvideo.livingroom",
+        ),
     ),
     "f1_tv": AppInfo(
         package="com.formulaone.production",
@@ -60,6 +65,7 @@ CURATED_APPS: dict[str, AppInfo] = {
         friendly_name="YouTube",
         category="streaming",
         icon_mdi="mdi:youtube",
+        alt_packages=("com.google.android.youtube.tv",),  # Google TV / Android TV
     ),
     "disney_plus": AppInfo(
         package="com.disney.disneyplus",

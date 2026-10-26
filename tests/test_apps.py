@@ -50,3 +50,13 @@ def test_alias_canonicalizes_and_launches_the_installed_variant(monkeypatch):
     assert "acme" in matched
     _info, launch_package = matched["acme"]
     assert launch_package == "com.acme.firetv"
+
+
+def test_google_tv_builds_resolve_to_curated_apps():
+    # Google TV / Android TV ship YouTube and Prime Video under different packages.
+    assert canonical_package("com.google.android.youtube.tv") == "com.amazon.firetv.youtube"
+    assert canonical_package("com.amazon.amazonvideo.livingroom") == (
+        "com.amazon.avod.thirdpartyclient"
+    )
+    matched = installed_curated({"com.google.android.youtube.tv"})
+    assert matched["youtube"][1] == "com.google.android.youtube.tv"
