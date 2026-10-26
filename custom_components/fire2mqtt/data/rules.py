@@ -68,16 +68,21 @@ CURATED_RULES: dict[str, list] = {
     ],
 
     # ── Jellyfin ─────────────────────────────────────────────────────────
+    # Jellyfin's Android TV app registers no MediaSession (seen on 0.19.10), so
+    # fall back to audio_state when there's no session state to go on.
     "org.jellyfin.androidtv": [
         {"playing": {"media_session_state": 3}},
         {"paused": {"media_session_state": 2}},
+        {"playing": {"audio_state": "playing"}},
         "idle",
     ],
 
     # ── Plex ─────────────────────────────────────────────────────────────
+    # Same sessionless shape as Jellyfin on some builds: audio_state fallback.
     "com.plexapp.android": [
         {"playing": {"media_session_state": 3}},
         {"paused": {"media_session_state": 2}},
+        {"playing": {"audio_state": "playing"}},
         "idle",
     ],
 

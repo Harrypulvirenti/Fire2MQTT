@@ -387,6 +387,35 @@ async def test_launcher_reports_idle_then_off(
     assert hass.states.get(ENTITY_ID).state == "idle"
 
 
+async def test_google_tv_launcher_and_screensaver_keep_idle_clock(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    # Google TV's launcher hands the foreground to its screensaver (and flickers back) while
+    # the device idles; hopping between home-screen packages must not restart the timeout.
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.launcherx", "name": "Google TV"}),
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    freezer.tick(timedelta(minutes=6))
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.dreamx", "name": "Ambient Mode"}),
+    )
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    # 11 minutes since the launcher came up (5 since the screensaver) → OFF.
+    freezer.tick(timedelta(minutes=5))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+
 def test_standby_rule_result_maps_to_off():
     # MediaPlayerState.STANDBY is deprecated in Home Assistant: a "standby" rule result
     # (python-androidtv rule format, still accepted) must surface as OFF.
