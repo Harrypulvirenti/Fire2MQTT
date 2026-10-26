@@ -5,7 +5,9 @@ import android.content.Context
 import android.media.AudioManager
 import android.os.Build
 import android.view.KeyEvent
+import android.view.View
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -49,29 +51,63 @@ class Fire2MqttAccessibilityService : AccessibilityService() {
 
     fun dispatchKey(keyCode: Int) {
         // A sideloaded app can't inject raw key events (needs system INJECT_EVENTS), so
-        // navigation/system keys go through AccessibilityService global actions. DPAD actions
-        // are API 30+ (Fire OS 11) — without them arrow navigation can't be delivered at all.
-        globalActionFor(keyCode, Build.VERSION.SDK_INT)?.let {
-            performGlobalAction(it)
+        // navigation/system keys go through AccessibilityService global actions.
+        val action = globalActionFor(keyCode, Build.VERSION.SDK_INT)
+        if (action != null && performGlobalAction(action)) return
+        // The DPAD global actions are only in the public SDK from API 33, so older devices may
+        // reject them. Fall back to moving accessibility focus through the UI ourselves.
+        if (focusMoveFor(keyCode) != null) {
+            if (!moveFocus(keyCode)) logger.w { "DPAD key $keyCode could not be delivered" }
             return
         }
         // Media transport keys still route through the active media session. Anything else
         // landing here is dropped by MediaSessionService, so say so for field debugging.
         if (keyCode !in MediaTransport.MEDIA_KEYS) {
-            logger.w { "Key $keyCode has no global action on SDK ${Build.VERSION.SDK_INT}; it will be ignored" }
+            logger.w { "Key $keyCode has no usable global action on SDK ${Build.VERSION.SDK_INT}; it will be ignored" }
         }
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
+    /**
+     * Delivers a DPAD key by acting on the input-focused node: CENTER clicks it, a direction
+     * moves focus to the nearest focusable node that way. Needs `canRetrieveWindowContent`.
+     */
+    private fun moveFocus(keyCode: Int): Boolean {
+        val move = focusMoveFor(keyCode) ?: return false
+        val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
+        return when (move) {
+            FocusMove.Click -> focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            is FocusMove.Direction ->
+                focused.focusSearch(move.direction)?.performAction(AccessibilityNodeInfo.ACTION_FOCUS) ?: false
+        }
+    }
+
+    internal sealed interface FocusMove {
+        data object Click : FocusMove
+        data class Direction(val direction: Int) : FocusMove
+    }
+
     companion object {
         var instance: Fire2MqttAccessibilityService? = null
 
+        /** How [moveFocus] delivers a DPAD key, or null for non-DPAD keys. Pure for testing. */
+        internal fun focusMoveFor(keyCode: Int): FocusMove? = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> FocusMove.Direction(View.FOCUS_UP)
+            KeyEvent.KEYCODE_DPAD_DOWN -> FocusMove.Direction(View.FOCUS_DOWN)
+            KeyEvent.KEYCODE_DPAD_LEFT -> FocusMove.Direction(View.FOCUS_LEFT)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> FocusMove.Direction(View.FOCUS_RIGHT)
+            KeyEvent.KEYCODE_DPAD_CENTER -> FocusMove.Click
+            else -> null
+        }
+
         /**
          * Maps a key code to the AccessibilityService global action that delivers it, or null
-         * when none applies (those keys fall back to the media-session path). DPAD navigation
-         * actions only exist on API 30+ (Android 11 / Fire OS 11). Pure for testing.
+         * when none applies (those keys fall back to focus navigation or the media-session path).
+         * The DPAD actions are public from API 33 but are attempted from API 30 (Fire OS 8),
+         * where some builds honour them; a rejected attempt falls back to focus navigation.
+         * Pure for testing.
          */
         internal fun globalActionFor(keyCode: Int, sdkInt: Int): Int? = when (keyCode) {
             KeyEvent.KEYCODE_HOME -> GLOBAL_ACTION_HOME
