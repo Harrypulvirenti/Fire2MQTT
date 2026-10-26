@@ -57,7 +57,7 @@ The contract is defined in **three places that must stay in sync**:
 2. `custom_components/fire2mqtt/schema.py` — the `*Payload.from_raw()` validators on the HA side.
 3. `docs/mqtt-schema.md` — the human spec. `tests/fixtures/mqtt_payloads.json` mirrors it.
 
-`const.SCHEMA_VERSION` (currently 1) rides on the `state/device` payload; `DevicePayload.from_raw` warns on mismatch. Topics: `{prefix}/{device_id}/state/{playback,app,screen,volume,device}` (retained), `{prefix}/{device_id}/status` (LWT online/offline), `{prefix}/{device_id}/cmd/{launch,key,media,volume,power}`. All `ts` fields are **epoch milliseconds**.
+`const.SCHEMA_VERSION` (currently 2) rides on the `state/device` payload; `DevicePayload.from_raw` warns on mismatch. Topics: `{prefix}/{device_id}/state/{playback,app,screen,volume,device}` (retained), `{prefix}/{device_id}/status` (LWT online/offline), `{prefix}/{device_id}/cmd/{launch,key,media,volume,power}`. All `ts` fields are **epoch milliseconds**.
 
 ## Conventions & gotchas
 

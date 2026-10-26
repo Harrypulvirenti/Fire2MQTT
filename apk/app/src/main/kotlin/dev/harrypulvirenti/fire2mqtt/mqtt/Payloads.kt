@@ -1,7 +1,22 @@
 package dev.harrypulvirenti.fire2mqtt.mqtt
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/**
+ * The Json instance for everything published on the wire. kotlinx.serialization skips a property
+ * whose value equals its default, and it decides that by re-evaluating the default — so `ts`
+ * (default `System.currentTimeMillis()`) went missing whenever a payload was encoded in the same
+ * millisecond it was built, and `schema_version` was never sent at all. [encodeDefaults] always
+ * writes them; [explicitNulls] off keeps absent optional fields (title, artist, …) omitted as before.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+val WireJson = Json {
+    encodeDefaults = true
+    explicitNulls = false
+}
 
 @Serializable
 data class PlaybackPayload(

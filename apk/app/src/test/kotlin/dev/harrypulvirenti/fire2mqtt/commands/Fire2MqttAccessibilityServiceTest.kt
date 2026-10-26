@@ -36,6 +36,12 @@ class Fire2MqttAccessibilityServiceTest {
         assertNull(action(KeyEvent.KEYCODE_DPAD_DOWN, sdk = 29))
     }
 
+    @Test fun `sleep locks the screen on api 28+ and has no action before`() {
+        // KEYCODE_SLEEP via the media-key path was a silent no-op (finding 4 in #41).
+        assertEquals(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN, action(KeyEvent.KEYCODE_SLEEP, sdk = 28))
+        assertNull(action(KeyEvent.KEYCODE_SLEEP, sdk = 27))
+    }
+
     @Test fun `media and unknown keys have no global action`() {
         // These fall back to the media-session path.
         assertNull(action(KeyEvent.KEYCODE_MEDIA_PLAY))
