@@ -28,6 +28,8 @@ from custom_components.fire2mqtt.data.rules import CURATED_RULES, DEFAULT_RULES
     ("tv.twitch.android.app", 2, "idle"),  # falls through to idle
     ("com.nuvio.tv", 3, "playing"),
     ("com.nuvio.tv", 2, "paused"),
+    ("de.cyberdream.dreamepg.tv.player", 3, "playing"),
+    ("de.cyberdream.dreamepg.tv.player", 2, "paused"),
 ])
 def test_curated_rules(app: str, state_int: int, expected: str):
     rules = CURATED_RULES.get(app, ["idle"])

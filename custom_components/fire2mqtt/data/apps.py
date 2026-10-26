@@ -127,6 +127,12 @@ CURATED_APPS: dict[str, AppInfo] = {
         category="streaming",
         icon_mdi="mdi:television-play",
     ),
+    "dream_player": AppInfo(
+        package="de.cyberdream.dreamepg.tv.player",
+        friendly_name="Dream Player",
+        category="self_hosted",
+        icon_mdi="mdi:satellite-variant",
+    ),
 }
 
 # Reverse lookup: every known package (canonical + aliases) → app key
