@@ -167,6 +167,7 @@ class MediaSessionWatcher(
             durationMs = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)
                 ?.takeIf { it > 0 },
             positionMs = state?.position?.takeIf { it >= 0 },
+            actions = state?.actions,
         )
     }
 

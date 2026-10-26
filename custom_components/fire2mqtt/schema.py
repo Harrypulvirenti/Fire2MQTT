@@ -134,6 +134,7 @@ class PlaybackPayload:
     # Optional fields present in some APK versions
     audio_state: str | None = None
     wake_lock_size: int | None = None
+    actions: int | None = None
 
     @classmethod
     def from_raw(
@@ -156,6 +157,7 @@ class PlaybackPayload:
             "ts": _coerce_int(raw.get("ts"), "ts", 0, logger) or 0,
             "audio_state": _coerce_str(raw.get("audio_state"), "audio_state", None, logger),
             "wake_lock_size": _coerce_int(raw.get("wake_lock_size"), "wake_lock_size", None, logger),
+            "actions": _coerce_int(raw.get("actions"), "actions", None, logger),
         }
 
 

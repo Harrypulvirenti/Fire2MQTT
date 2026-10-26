@@ -416,6 +416,43 @@ async def test_google_tv_launcher_and_screensaver_keep_idle_clock(
     assert hass.states.get(ENTITY_ID).state == "off"
 
 
+async def test_next_previous_hidden_when_session_cannot_skip(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    # A Cast session reports actions=903: play/pause/stop/seek but no skip bits (#41).
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({
+        "media_session_state": 3, "app": "com.google.android.apps.mediashell", "actions": 903,
+    }))
+    await hass.async_block_till_done()
+    feats = hass.states.get(ENTITY_ID).attributes["supported_features"]
+    assert not (feats & MediaPlayerEntityFeature.NEXT_TRACK)
+    assert not (feats & MediaPlayerEntityFeature.PREVIOUS_TRACK)
+    assert feats & MediaPlayerEntityFeature.PAUSE
+
+
+async def test_next_previous_offered_when_session_can_skip(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({
+        "media_session_state": 3, "app": "com.spotify.music", "actions": 823,
+    }))
+    await hass.async_block_till_done()
+    feats = hass.states.get(ENTITY_ID).attributes["supported_features"]
+    assert feats & MediaPlayerEntityFeature.NEXT_TRACK
+    assert feats & MediaPlayerEntityFeature.PREVIOUS_TRACK
+
+
+async def test_missing_actions_keeps_full_feature_set(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    # Older APKs don't send `actions`; nothing should disappear for them.
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
+    feats = hass.states.get(ENTITY_ID).attributes["supported_features"]
+    assert feats & MediaPlayerEntityFeature.NEXT_TRACK
+    assert feats & MediaPlayerEntityFeature.PREVIOUS_TRACK
+
+
 def test_standby_rule_result_maps_to_off():
     # MediaPlayerState.STANDBY is deprecated in Home Assistant: a "standby" rule result
     # (python-androidtv rule format, still accepted) must surface as OFF.

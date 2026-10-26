@@ -87,6 +87,11 @@ class TestPlaybackPayload:
         assert result["position_ms"] is None
         assert result["audio_state"] is None
         assert result["wake_lock_size"] is None
+        assert result["actions"] is None
+
+    def test_actions_bitmask_is_coerced_to_int(self):
+        result = PlaybackPayload.from_raw({"media_session_state": 3, "actions": "903"})
+        assert result["actions"] == 903
 
     def test_missing_required_fields_use_zero_defaults(self):
         result = PlaybackPayload.from_raw({})
