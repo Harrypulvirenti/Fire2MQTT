@@ -4,11 +4,14 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import org.koin.core.annotation.Factory
 
@@ -22,13 +25,20 @@ import org.koin.core.annotation.Factory
  *
  * Only [PLAYING]/[IDLE] are distinguishable: a paused AudioTrack drops out of the active
  * configuration list, so a pause is indistinguishable from a stop here.
+ *
+ * The playback-configuration API is API 26+. On API 25 (Fire OS 6) this reports a constant
+ * [IDLE], so session-less apps simply aren't detected rather than crashing the pipeline.
  */
 @Factory
 class AudioPlaybackWatcher(private val context: Context) {
 
     private val audio = context.getSystemService(AudioManager::class.java)
 
-    fun audioStateFlow(): Flow<String> = callbackFlow {
+    fun audioStateFlow(): Flow<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) playbackConfigFlow() else flowOf(IDLE)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun playbackConfigFlow(): Flow<String> = callbackFlow {
         val callback = object : AudioManager.AudioPlaybackCallback() {
             override fun onPlaybackConfigChanged(configs: List<AudioPlaybackConfiguration>) {
                 trySend(stateOf(configs))
@@ -54,6 +64,7 @@ class AudioPlaybackWatcher(private val context: Context) {
             AudioAttributes.USAGE_GAME,
         )
 
+        @RequiresApi(Build.VERSION_CODES.O)
         private fun stateOf(configs: List<AudioPlaybackConfiguration>): String =
             if (configs.any { it.audioAttributes.usage in MEDIA_USAGES }) PLAYING else IDLE
     }

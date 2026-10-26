@@ -3,6 +3,7 @@ package dev.harrypulvirenti.fire2mqtt.commands
 import android.accessibilityservice.AccessibilityService
 import android.os.Build
 import android.view.KeyEvent
+import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import io.mockk.every
@@ -34,6 +35,26 @@ class Fire2MqttAccessibilityServiceTest {
 
     @Test fun `dpad keys are unavailable before api 30`() {
         assertNull(action(KeyEvent.KEYCODE_DPAD_DOWN, sdk = 29))
+    }
+
+    @Test fun `dpad keys map to focus moves for the fallback path`() {
+        assertEquals(
+            Fire2MqttAccessibilityService.FocusMove.Direction(View.FOCUS_UP),
+            Fire2MqttAccessibilityService.focusMoveFor(KeyEvent.KEYCODE_DPAD_UP),
+        )
+        assertEquals(
+            Fire2MqttAccessibilityService.FocusMove.Direction(View.FOCUS_RIGHT),
+            Fire2MqttAccessibilityService.focusMoveFor(KeyEvent.KEYCODE_DPAD_RIGHT),
+        )
+        assertEquals(
+            Fire2MqttAccessibilityService.FocusMove.Click,
+            Fire2MqttAccessibilityService.focusMoveFor(KeyEvent.KEYCODE_DPAD_CENTER),
+        )
+    }
+
+    @Test fun `non dpad keys have no focus move`() {
+        assertNull(Fire2MqttAccessibilityService.focusMoveFor(KeyEvent.KEYCODE_HOME))
+        assertNull(Fire2MqttAccessibilityService.focusMoveFor(KeyEvent.KEYCODE_MEDIA_PLAY))
     }
 
     @Test fun `media and unknown keys have no global action`() {
