@@ -16,6 +16,10 @@
     <string name="field_port_hint">1–65535</string>
     <string name="field_username">Usuario</string>
     <string name="field_password">Contraseña</string>
+    <string name="field_use_tls">Usar TLS (mqtts)</string>
+    <string name="field_use_tls_hint">SELECT para cambiar</string>
+    <string name="toggle_on">SÍ</string>
+    <string name="toggle_off">NO</string>
     <string name="field_device_id">ID del dispositivo</string>
     <string name="field_topic_prefix">Prefijo de topic</string>
     <string name="field_value_optional">— opcional —</string>
