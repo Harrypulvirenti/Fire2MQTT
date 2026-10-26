@@ -60,9 +60,14 @@ TOPIC_CMD_MEDIA = "{prefix}/{device_id}/cmd/media"
 
 # Foreground packages that mean "sitting on the home screen" — used by the
 # media player's idle-timeout logic to report OFF after CONF_IDLE_TIMEOUT.
+# Includes the Google TV screensaver ("Ambient Mode"), which takes over the
+# foreground after the device has idled on the launcher for a while.
 LAUNCHER_PACKAGES = frozenset({
     "com.amazon.tv.launcher",
     "com.amazon.firetv.launcher",
+    "com.google.android.apps.tv.launcherx",  # Google TV
+    "com.google.android.tvlauncher",  # Android TV (pre-Google TV)
+    "com.google.android.apps.tv.dreamx",  # Google TV screensaver
 })
 
 # HA rejects states longer than 255 chars; cap coerced strings so a buggy or

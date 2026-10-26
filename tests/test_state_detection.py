@@ -30,6 +30,8 @@ from custom_components.fire2mqtt.data.rules import CURATED_RULES, DEFAULT_RULES
     ("com.nuvio.tv", 2, "paused"),
     ("de.cyberdream.dreamepg.tv.player", 3, "playing"),
     ("de.cyberdream.dreamepg.tv.player", 2, "paused"),
+    # Jellyfin/Plex with a real session still use media_session_state first
+    ("org.jellyfin.androidtv", 2, "paused"),
 ])
 def test_curated_rules(app: str, state_int: int, expected: str):
     rules = CURATED_RULES.get(app, ["idle"])
@@ -81,3 +83,13 @@ def test_all_curated_apps_have_rules():
         assert info.package in CURATED_RULES, (
             f"App '{key}' ({info.package}) is in apps.py but missing from rules.py"
         )
+
+
+@pytest.mark.parametrize("app", ["org.jellyfin.androidtv", "com.plexapp.android"])
+def test_sessionless_jellyfin_and_plex_fall_back_to_audio_state(app: str):
+    # Jellyfin's Android TV app registers no MediaSession; audio_state still says playing.
+    rules = CURATED_RULES[app]
+    assert evaluate(rules, {"media_session_state": 0, "audio_state": "playing"}) == "playing"
+    assert evaluate(rules, {"media_session_state": 0, "audio_state": "idle"}) == "idle"
+    # A real paused session wins over lingering audio.
+    assert evaluate(rules, {"media_session_state": 2, "audio_state": "playing"}) == "paused"

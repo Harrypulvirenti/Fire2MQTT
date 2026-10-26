@@ -144,10 +144,23 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
             self.async_set_updated_data(self.data)
 
     @callback
+    def _note_live_message(self, msg: mqtt.ReceiveMessage) -> None:
+        """A live (non-retained) state message proves the device is up, even if the
+        broker last delivered an LWT "offline". After a fast reboot the old session's
+        LWT can fire *after* the new session's "online" (the APK reconnects under a
+        new client ID), which would otherwise leave every entity unavailable while
+        the device keeps publishing. Retained replays say nothing about liveness, so
+        they're ignored — on HA startup they'd mask a real "offline"."""
+        if not msg.retain and not self.data.online:
+            _LOGGER.debug("Fire2MQTT: live state on %s, marking device online", msg.topic)
+            self.data.online = True
+
+    @callback
     def _on_playback(self, msg: mqtt.ReceiveMessage) -> None:
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         self.data.playback = PlaybackPayload.from_raw(parsed, logger=_LOGGER)
         self.async_set_updated_data(self.data)
 
@@ -156,6 +169,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         self.data.app = AppPayload.from_raw(parsed, logger=_LOGGER)
         self.async_set_updated_data(self.data)
 
@@ -164,6 +178,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         normalised = InstalledAppsPayload.from_raw(parsed, logger=_LOGGER)
         self.data.installed_packages = set(normalised["packages"])
         self.async_set_updated_data(self.data)
@@ -173,6 +188,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         self.data.screen = ScreenPayload.from_raw(parsed, logger=_LOGGER)
         self.async_set_updated_data(self.data)
 
@@ -181,6 +197,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         self.data.volume = VolumePayload.from_raw(parsed, logger=_LOGGER)
         self.async_set_updated_data(self.data)
 
@@ -189,6 +206,7 @@ class Fire2MqttCoordinator(DataUpdateCoordinator[Fire2MqttData]):
         parsed = self._parse_json(msg.payload)
         if parsed is None:
             return
+        self._note_live_message(msg)
         self.data.device_info = DevicePayload.from_raw(parsed, logger=_LOGGER)
         self._sync_device_registry()
         self.async_set_updated_data(self.data)

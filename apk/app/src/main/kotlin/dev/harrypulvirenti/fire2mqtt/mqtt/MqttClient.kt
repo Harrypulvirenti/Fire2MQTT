@@ -14,7 +14,6 @@ import org.koin.core.annotation.Factory
 import org.koin.core.annotation.InjectedParam
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -27,12 +26,20 @@ data class MqttConfig(
     val username: String? = null,
     val password: String? = null,
     val useTls: Boolean = false,
-    val clientId: String = "fire2mqtt_${UUID.randomUUID()}",
     val willTopic: String,
     val willPayload: String = "offline",
     val prefix: String,
     val deviceId: String,
-)
+) {
+    /**
+     * Stable per device, so a reconnect after a fast reboot *takes over* the old session: the
+     * broker drops the half-open connection at once and fires its LWT before our new "online".
+     * A random ID per connect left the old session alive until its keepalive expired, which
+     * could land the stale LWT "offline" after the new "online" and leave HA showing the device
+     * unavailable while it was publishing normally.
+     */
+    val clientId: String get() = "fire2mqtt_$deviceId"
+}
 
 @Factory
 class Fire2MqttClient(@InjectedParam private val config: MqttConfig) {

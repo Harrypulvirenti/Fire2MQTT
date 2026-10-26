@@ -75,4 +75,56 @@ class ForegroundAppWatcherTest {
         assertEquals("com.no.label", events[0].packageName)
         assertEquals("com.no.label", events[0].appName)
     }
+
+    @Test
+    fun `launcher echo right after an app takes focus is dropped`() = runTest {
+        // Google TV fires launcherx just after the app it opened (finding 6 in #41).
+        stubAppLabel("com.google.android.youtube.tv", "YouTube")
+        val times = ArrayDeque(listOf(0L, 300L))
+        val watcher = ForegroundAppWatcher(
+            context,
+            source = flowOf("com.google.android.youtube.tv", "com.google.android.apps.tv.launcherx"),
+            nowMs = { times.removeFirst() },
+        )
+
+        val events = watcher.foregroundAppFlow().toList()
+
+        assertEquals(listOf("com.google.android.youtube.tv"), events.map { it.packageName })
+    }
+
+    @Test
+    fun `returning to the launcher after the window is reported`() = runTest {
+        stubAppLabel("com.google.android.youtube.tv", "YouTube")
+        stubAppLabel("com.google.android.apps.tv.launcherx", "Google TV")
+        val times = ArrayDeque(listOf(0L, LAUNCHER_FLICKER_WINDOW_MS + 1))
+        val watcher = ForegroundAppWatcher(
+            context,
+            source = flowOf("com.google.android.youtube.tv", "com.google.android.apps.tv.launcherx"),
+            nowMs = { times.removeFirst() },
+        )
+
+        val events = watcher.foregroundAppFlow().toList()
+
+        assertEquals(
+            listOf("com.google.android.youtube.tv", "com.google.android.apps.tv.launcherx"),
+            events.map { it.packageName },
+        )
+    }
+
+    @Test
+    fun `repeat events from the same app do not reopen the flicker window`() = runTest {
+        // A real HOME press shortly after an in-app window change must still register.
+        stubAppLabel("com.example.app", "Example App")
+        stubAppLabel("com.amazon.tv.launcher", "Home")
+        val times = ArrayDeque(listOf(0L, 5_000L, 5_300L))
+        val watcher = ForegroundAppWatcher(
+            context,
+            source = flowOf("com.example.app", "com.example.app", "com.amazon.tv.launcher"),
+            nowMs = { times.removeFirst() },
+        )
+
+        val events = watcher.foregroundAppFlow().toList()
+
+        assertEquals(listOf("com.example.app", "com.amazon.tv.launcher"), events.map { it.packageName })
+    }
 }

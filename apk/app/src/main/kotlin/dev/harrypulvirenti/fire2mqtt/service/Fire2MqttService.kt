@@ -21,6 +21,7 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.InstalledAppsPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.MqttConfig
 import dev.harrypulvirenti.fire2mqtt.mqtt.ScreenPayload
 import dev.harrypulvirenti.fire2mqtt.mqtt.TopicSchema
+import dev.harrypulvirenti.fire2mqtt.mqtt.WireJson
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.InstalledAppsProvider
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
@@ -34,7 +35,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
 import org.koin.core.parameter.parametersOf
@@ -151,14 +151,14 @@ class Fire2MqttService : Service() {
         client.publish(TopicSchema.status(prefix, deviceId), "online", retain = true)
         client.publish(
             TopicSchema.stateDevice(prefix, deviceId),
-            Json.encodeToString(buildDevicePayload()),
+            WireJson.encodeToString(buildDevicePayload()),
             retain = true,
         )
         // Installed-apps inventory: lets HA show only the apps actually on the device.
         // Published once at startup; a service restart re-publishes after install/uninstall.
         client.publish(
             TopicSchema.stateApps(prefix, deviceId),
-            Json.encodeToString(
+            WireJson.encodeToString(
                 InstalledAppsPayload(packages = get<InstalledAppsProvider>().launchablePackages())
             ),
             retain = true,
@@ -218,7 +218,7 @@ class Fire2MqttService : Service() {
                     .collect { payload ->
                         client.publish(
                             TopicSchema.statePlayback(prefix, deviceId),
-                            Json.encodeToString(payload),
+                            WireJson.encodeToString(payload),
                             retain = true,
                         )
                     }
@@ -229,7 +229,7 @@ class Fire2MqttService : Service() {
                 this@Fire2MqttService.get<ForegroundAppWatcher>().foregroundAppFlow()
                     .catch { logger.e(it) { "ForegroundApp error: ${it.message}" } }
                     .collect { event ->
-                        val appJson = Json.encodeToString(
+                        val appJson = WireJson.encodeToString(
                             AppPayload(`package` = event.packageName, name = event.appName)
                         )
                         client.publish(TopicSchema.stateApp(prefix, deviceId), appJson, retain = true)
@@ -241,7 +241,7 @@ class Fire2MqttService : Service() {
                 this@Fire2MqttService.get<ScreenWatcher>().screenStateFlow()
                     .catch { logger.e(it) { "Screen error: ${it.message}" } }
                     .collect { on ->
-                        val json = Json.encodeToString(ScreenPayload(on = on))
+                        val json = WireJson.encodeToString(ScreenPayload(on = on))
                         client.publish(TopicSchema.stateScreen(prefix, deviceId), json, retain = true)
                     }
             }
@@ -253,7 +253,7 @@ class Fire2MqttService : Service() {
                     .collect { vol ->
                         client.publish(
                             TopicSchema.stateVolume(prefix, deviceId),
-                            Json.encodeToString(vol),
+                            WireJson.encodeToString(vol),
                             retain = true,
                         )
                     }

@@ -2,6 +2,7 @@ package dev.harrypulvirenti.fire2mqtt.commands
 
 import android.content.Context
 import android.media.AudioManager
+import dev.harrypulvirenti.fire2mqtt.system.VolumeChangeSignal
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -14,6 +15,7 @@ class VolumeControllerTest {
 
     private lateinit var audioManager: AudioManager
     private lateinit var controller: VolumeController
+    private lateinit var changeSignal: VolumeChangeSignal
 
     @BeforeEach
     fun setUp() {
@@ -22,7 +24,8 @@ class VolumeControllerTest {
         val context = mockk<Context> {
             every { getSystemService(AudioManager::class.java) } returns audioManager
         }
-        controller = VolumeController(context)
+        changeSignal = mockk(relaxed = true)
+        controller = VolumeController(context, changeSignal)
     }
 
     @Test fun `set within range calls setStreamVolume with exact value`() {
@@ -68,5 +71,15 @@ class VolumeControllerTest {
     @Test fun `unmute calls adjustStreamVolume with ADJUST_UNMUTE`() {
         controller.unmute()
         verify { audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0) }
+    }
+
+    @Test fun `every command signals a volume republish`() {
+        // Google TV never reported the change on its own (finding 8 in #41).
+        controller.set(3)
+        controller.stepUp()
+        controller.stepDown()
+        controller.mute()
+        controller.unmute()
+        verify(exactly = 5) { changeSignal.notifyChanged() }
     }
 }

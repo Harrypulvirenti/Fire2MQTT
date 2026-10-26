@@ -24,6 +24,7 @@ class CommandRouterTest {
     private lateinit var router: CommandRouter
     private lateinit var appLauncher: AppLauncher
     private lateinit var volumeController: VolumeController
+    private lateinit var mediaTransport: MediaTransport
 
     @BeforeEach
     fun setUp() {
@@ -32,10 +33,13 @@ class CommandRouterTest {
         volumeController = mockk(relaxed = true)
         mockkObject(Fire2MqttAccessibilityService.Companion)
 
+        mediaTransport = mockk()
+        // No readable session by default, so media keys fall back to key dispatch.
+        every { mediaTransport.send(any()) } returns false
         every { appLauncher.launch(any()) } returns true
         every { Fire2MqttAccessibilityService.sendKey(any()) } returns true
 
-        router = CommandRouter(PREFIX, DEVICE_ID, appLauncher, volumeController)
+        router = CommandRouter(PREFIX, DEVICE_ID, appLauncher, volumeController, mediaTransport)
     }
 
     @AfterEach
@@ -147,6 +151,24 @@ class CommandRouterTest {
     fun `cmdMedia dispatches correct keycode`(command: String, expectedCode: Int) {
         router.route(TopicSchema.cmdMedia(PREFIX, DEVICE_ID), command)
         verify { Fire2MqttAccessibilityService.sendKey(expectedCode) }
+    }
+
+    @Test fun `cmdMedia goes to the media session when one handles it`() {
+        every { mediaTransport.send(KeyEvent.KEYCODE_MEDIA_PLAY) } returns true
+        router.route(TopicSchema.cmdMedia(PREFIX, DEVICE_ID), "play")
+        verify { mediaTransport.send(KeyEvent.KEYCODE_MEDIA_PLAY) }
+        verify(exactly = 0) { Fire2MqttAccessibilityService.sendKey(any()) }
+    }
+
+    @Test fun `cmdKey media key goes to the media session when one handles it`() {
+        every { mediaTransport.send(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) } returns true
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "MEDIA_PLAY_PAUSE")
+        verify(exactly = 0) { Fire2MqttAccessibilityService.sendKey(any()) }
+    }
+
+    @Test fun `cmdKey navigation key never goes through the media session`() {
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "HOME")
+        verify(exactly = 0) { mediaTransport.send(any()) }
     }
 
     @Test fun `cmdMedia unknown command does nothing`() {
