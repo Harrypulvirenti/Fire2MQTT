@@ -88,4 +88,27 @@ class MediaSessionWatcherTest {
             MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE to "Same",
         )))
     }
+
+    @Test fun `series name falls back to the description subtitle`() {
+        // HBO Max series: dumpsys shows `description=Every Little Thing She Does, War, null`.
+        assertEquals("War", MediaSessionWatcher.artistFrom(
+            meta(MediaMetadata.METADATA_KEY_TITLE to "Every Little Thing She Does"),
+            descriptionSubtitle = "War",
+        ))
+        // Movie: empty subtitle, no artist.
+        assertNull(MediaSessionWatcher.artistFrom(
+            meta(MediaMetadata.METADATA_KEY_TITLE to "The Departed"),
+            descriptionSubtitle = "",
+        ))
+    }
+
+    @Test fun `description subtitle that is just the album is not used as artist`() {
+        assertNull(MediaSessionWatcher.artistFrom(
+            meta(
+                MediaMetadata.METADATA_KEY_TITLE to "Track",
+                MediaMetadata.METADATA_KEY_ALBUM to "Album",
+            ),
+            descriptionSubtitle = "Album",
+        ))
+    }
 }

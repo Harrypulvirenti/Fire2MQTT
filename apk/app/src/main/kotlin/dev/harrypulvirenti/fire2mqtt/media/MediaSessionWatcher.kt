@@ -163,7 +163,7 @@ class MediaSessionWatcher(
             ),
             app = controller?.packageName ?: "",
             title = metadata?.let { titleFrom(it::getString) },
-            artist = metadata?.let { artistFrom(it::getString) },
+            artist = metadata?.let { artistFrom(it::getString, it.description?.subtitle?.toString()) },
             album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM),
             durationMs = durationMs,
             positionMs = state?.takeIf { it.position >= 0 }?.let {
@@ -191,14 +191,17 @@ class MediaSessionWatcher(
                 ?: get(MediaMetadata.METADATA_KEY_DISPLAY_TITLE).nonBlank()
 
         /**
-         * Artist from session metadata, falling back to DISPLAY_SUBTITLE, where video apps
-         * typically put the series name. A subtitle that merely repeats the title is ignored.
+         * Artist from session metadata, falling back to the subtitle video apps use for the
+         * series name: DISPLAY_SUBTITLE, else the subtitle of the session's MediaDescription
+         * ([descriptionSubtitle]), which Android derives from DISPLAY_SUBTITLE or the first spare
+         * of artist/album/writer/author/composer — HBO Max's series name only shows up there.
+         * A subtitle that merely repeats the title or album is ignored.
          */
-        internal fun artistFrom(get: (String) -> String?): String? =
+        internal fun artistFrom(get: (String) -> String?, descriptionSubtitle: String? = null): String? =
             get(MediaMetadata.METADATA_KEY_ARTIST).nonBlank()
                 ?: get(MediaMetadata.METADATA_KEY_ALBUM_ARTIST).nonBlank()
-                ?: get(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE).nonBlank()
-                    ?.takeIf { it != titleFrom(get) }
+                ?: (get(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE).nonBlank() ?: descriptionSubtitle.nonBlank())
+                    ?.takeIf { it != titleFrom(get) && it != get(MediaMetadata.METADATA_KEY_ALBUM) }
 
         private fun String?.nonBlank(): String? = this?.takeIf { it.isNotBlank() }
 
