@@ -1,5 +1,6 @@
 package dev.harrypulvirenti.fire2mqtt.media
 
+import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
 import io.mockk.every
@@ -50,5 +51,41 @@ class MediaSessionWatcherTest {
             MediaSessionWatcher.statePriority(PlaybackState.STATE_STOPPED) >
                 MediaSessionWatcher.statePriority(PlaybackState.STATE_NONE)
         )
+    }
+
+    private fun meta(vararg pairs: Pair<String, String>): (String) -> String? = mapOf(*pairs)::get
+
+    @Test fun `title prefers TITLE and falls back to DISPLAY_TITLE`() {
+        assertEquals("T", MediaSessionWatcher.titleFrom(meta(
+            MediaMetadata.METADATA_KEY_TITLE to "T",
+            MediaMetadata.METADATA_KEY_DISPLAY_TITLE to "D",
+        )))
+        assertEquals("D", MediaSessionWatcher.titleFrom(meta(
+            MediaMetadata.METADATA_KEY_TITLE to " ",
+            MediaMetadata.METADATA_KEY_DISPLAY_TITLE to "D",
+        )))
+        assertNull(MediaSessionWatcher.titleFrom(meta()))
+    }
+
+    @Test fun `artist falls back to album artist then display subtitle`() {
+        assertEquals("A", MediaSessionWatcher.artistFrom(meta(
+            MediaMetadata.METADATA_KEY_ARTIST to "A",
+            MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE to "S",
+        )))
+        assertEquals("AA", MediaSessionWatcher.artistFrom(meta(
+            MediaMetadata.METADATA_KEY_ALBUM_ARTIST to "AA",
+            MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE to "S",
+        )))
+        assertEquals("The Series", MediaSessionWatcher.artistFrom(meta(
+            MediaMetadata.METADATA_KEY_TITLE to "The Episode",
+            MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE to "The Series",
+        )))
+    }
+
+    @Test fun `display subtitle that repeats the title is not used as artist`() {
+        assertNull(MediaSessionWatcher.artistFrom(meta(
+            MediaMetadata.METADATA_KEY_DISPLAY_TITLE to "Same",
+            MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE to "Same",
+        )))
     }
 }

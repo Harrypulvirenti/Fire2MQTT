@@ -162,9 +162,8 @@ class MediaSessionWatcher(
                 state?.state ?: PlaybackState.STATE_NONE
             ),
             app = controller?.packageName ?: "",
-            title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
-            artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-                ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
+            title = metadata?.let { titleFrom(it::getString) },
+            artist = metadata?.let { artistFrom(it::getString) },
             album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM),
             durationMs = durationMs,
             positionMs = state?.takeIf { it.position >= 0 }?.let {
@@ -182,6 +181,27 @@ class MediaSessionWatcher(
     }
 
     companion object {
+        /**
+         * Title from session metadata. Video apps often fill only the DISPLAY_* description keys
+         * (what the system media UI shows), so fall back to those. Pure for testing; [get] reads
+         * one metadata key.
+         */
+        internal fun titleFrom(get: (String) -> String?): String? =
+            get(MediaMetadata.METADATA_KEY_TITLE).nonBlank()
+                ?: get(MediaMetadata.METADATA_KEY_DISPLAY_TITLE).nonBlank()
+
+        /**
+         * Artist from session metadata, falling back to DISPLAY_SUBTITLE, where video apps
+         * typically put the series name. A subtitle that merely repeats the title is ignored.
+         */
+        internal fun artistFrom(get: (String) -> String?): String? =
+            get(MediaMetadata.METADATA_KEY_ARTIST).nonBlank()
+                ?: get(MediaMetadata.METADATA_KEY_ALBUM_ARTIST).nonBlank()
+                ?: get(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE).nonBlank()
+                    ?.takeIf { it != titleFrom(get) }
+
+        private fun String?.nonBlank(): String? = this?.takeIf { it.isNotBlank() }
+
         /**
          * The session to report when several are active: the most "playing" one. A background
          * player sitting at STATE_NONE/STOPPED must never outrank the app actually playing.
