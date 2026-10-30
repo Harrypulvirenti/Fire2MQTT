@@ -11,12 +11,12 @@
       },
       "manual_install": {
         "title": "Sideload the app yourself",
-        "description": "Build the Fire2MQTT APK (or use a prebuilt release) and sideload it over ADB:\n```\nadb connect <fire-tv-ip>\nadb install -r app-debug.apk\n```\n\nLaunch the app once it's installed, then submit.",
+        "description": "Build the Fire2MQTT APK (or use a prebuilt release) and sideload it over ADB:\n```\nadb connect FIRE_TV_IP\nadb install -r app-debug.apk\n```\n\nLaunch the app once it's installed, then submit.",
         "data": {}
       },
       "manual_grant_permissions": {
         "title": "Grant permissions over ADB",
-        "description": "Fire OS hides Accessibility/Notification-listener toggles from sideloaded apps. Grant **`WRITE_SECURE_SETTINGS`** once and the app enables them itself:\n```\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS\n```\n\nIf this fails with `error: device offline`, your ADB-over-Wi-Fi connection went stale — run `adb disconnect <fire-tv-ip>:5555`, then `adb connect <fire-tv-ip>:5555` again, and confirm `adb devices -l` shows `device` (not `offline`) before retrying the grant command.\n\nSubmit once the grant succeeds.",
+        "description": "Fire OS hides Accessibility/Notification-listener toggles from sideloaded apps. Grant **`WRITE_SECURE_SETTINGS`** once and the app enables them itself:\n```\nadb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS\n```\n\nIf this fails with `error: device offline`, your ADB-over-Wi-Fi connection went stale — run `adb disconnect FIRE_TV_IP:5555`, then `adb connect FIRE_TV_IP:5555` again, and confirm `adb devices -l` shows `device` (not `offline`) before retrying the grant command.\n\nSubmit once the grant succeeds.",
         "data": {}
       },
       "manual_configure_app": {
