@@ -72,6 +72,21 @@ Without the two `cmd notification` lines the listener is listed as enabled but n
 forces Fire OS to rebind it; re-run both lines if playback state disappears after a reinstall. The HA
 integration's ADB install and **Re-provision** button run all three commands for you.
 
+**Fire OS 6 (Android 7.1, e.g. the 1st-gen Fire TV Stick 4K `AFTMM`):** `cmd notification` doesn't exist
+there and just prints `No shell command implementation.` Instead, take the listener out of
+`enabled_notification_listeners` and put it back, which makes Fire OS 6 rebind it. Keep any other entries:
+
+```bash
+adb shell settings get secure enabled_notification_listeners
+# Write back the list WITHOUT dev.harrypulvirenti.fire2mqtt/... (keep the other entries, colon-separated;
+# if ours was the only one, use `settings delete secure enabled_notification_listeners`), then add it back:
+adb shell settings put secure enabled_notification_listeners '<other entries>'
+adb shell settings put secure enabled_notification_listeners '<other entries>:dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener'
+```
+
+Don't run `settings delete` while other entries are in the list, because it revokes every app's listener.
+The integration's ADB install and **Re-provision** do this automatically when `cmd notification` is missing.
+
 The app's **Permissions** screen shows this exact command (with your device's IP). After you run it, return
 to the app and tap **Enable permissions** (or just restart the app) — it writes the secure settings to turn
 on:

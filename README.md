@@ -182,6 +182,9 @@ adb shell cmd notification disallow_listener dev.harrypulvirenti.fire2mqtt/dev.h
 adb shell cmd notification allow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 ```
 
+On Fire OS 6 (1st-gen Fire TV Stick 4K and older) `cmd notification` doesn't exist. See
+[docs/installing-apk.md](docs/installing-apk.md#5-grant-permissions-adb) for the alternative.
+
 Then open the app on the Fire TV and enter your broker address, username/password
 (toggle **TLS** for `mqtts://` on port 8883), and a device ID matching the one in HA.
 
