@@ -11,6 +11,7 @@ import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.Fire2MqttApp
 import dev.harrypulvirenti.fire2mqtt.R
 import dev.harrypulvirenti.fire2mqtt.commands.CommandRouter
+import dev.harrypulvirenti.fire2mqtt.commands.Fire2MqttAccessibilityService
 import dev.harrypulvirenti.fire2mqtt.media.AudioPlaybackWatcher
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.media.PlaybackStateMapper
@@ -43,6 +44,7 @@ import java.net.NetworkInterface
 
 private val logger = Logger.withTag("Fire2MQTT/Service")
 private const val NOTIFICATION_ID = 1
+private const val ACCESSIBILITY_BIND_GRACE_MS = 5_000L
 
 class Fire2MqttService : Service() {
 
@@ -74,6 +76,7 @@ class Fire2MqttService : Service() {
         // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
         // access so the watchers (key injection, media sessions, foreground app) work.
         SecureSettingsManager.ensureAllEnabled(this)
+        healAccessibilityBinding()
         val previousPipeline = pipelineJob
         pipelineJob = scope.launch {
             if (previousPipeline?.isActive == true) {
@@ -86,6 +89,26 @@ class Fire2MqttService : Service() {
             startPipeline()
         }
         return START_STICKY
+    }
+
+    /**
+     * Give the framework a moment to bind the accessibility service; if it still hasn't (Fire OS 6
+     * after a crash or update), nudge it — foreground-app detection and key injection depend on it.
+     */
+    private fun healAccessibilityBinding() {
+        scope.launch {
+            delay(ACCESSIBILITY_BIND_GRACE_MS)
+            val attempted = SecureSettingsManager.rebindAccessibilityIfUnbound(this@Fire2MqttService) {
+                Fire2MqttAccessibilityService.instance != null
+            }
+            if (!attempted) return@launch
+            delay(ACCESSIBILITY_BIND_GRACE_MS)
+            if (Fire2MqttAccessibilityService.instance != null) {
+                logger.i { "Accessibility service bound after re-enable" }
+            } else {
+                logger.w { "Accessibility service still not bound — foreground-app detection is unavailable" }
+            }
+        }
     }
 
     override fun onDestroy() {
