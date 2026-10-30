@@ -104,6 +104,72 @@ async def test_provision_already_installed_grants_and_launches(
     assert allow_idx < launch_idx
 
 
+_LISTENER = f"{FIRE2MQTT_PACKAGE}/{FIRE2MQTT_PACKAGE}.media.MediaNotificationListener"
+
+
+async def test_provision_fire_os_6_toggles_listener_setting(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    # Fire OS 6 (Android 7.1) has no `cmd notification`; the shell prints an error instead of
+    # failing, so the bind falls back to toggling our entry in the secure setting.
+    other = "com.example/.OtherListener"
+    device = _fake_device({
+        f"pm list packages {FIRE2MQTT_PACKAGE}": f"package:{FIRE2MQTT_PACKAGE}",
+        "dumpsys package": "android.permission.WRITE_SECURE_SETTINGS: granted=true",
+        "cmd notification": "No shell command implementation.",
+        "settings get secure enabled_notification_listeners": f"{other}:{_LISTENER}\n",
+    })
+    _patch_adb_imports["device"] = device
+
+    await async_provision(hass, "10.0.0.50", _cfg())
+
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    puts = [c for c in calls if c.startswith("settings put secure enabled_notification_listeners")]
+    # Removed (other listeners kept), then re-added — never a blanket delete.
+    assert puts == [
+        f"settings put secure enabled_notification_listeners {other}",
+        f"settings put secure enabled_notification_listeners {other}:{_LISTENER}",
+    ]
+    assert not any("settings delete" in c for c in calls)
+    assert calls.index(puts[-1]) < next(i for i, c in enumerate(calls) if "am start" in c)
+
+
+async def test_provision_fire_os_6_listener_setting_only_ours(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    device = _fake_device({
+        f"pm list packages {FIRE2MQTT_PACKAGE}": f"package:{FIRE2MQTT_PACKAGE}",
+        "dumpsys package": "android.permission.WRITE_SECURE_SETTINGS: granted=true",
+        "cmd notification": "No shell command implementation.",
+        "settings get secure enabled_notification_listeners": f"{_LISTENER}\n",
+    })
+    _patch_adb_imports["device"] = device
+
+    await async_provision(hass, "10.0.0.50", _cfg())
+
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    toggle = [c for c in calls if "enabled_notification_listeners" in c and "get" not in c]
+    assert toggle == [
+        "settings delete secure enabled_notification_listeners",
+        f"settings put secure enabled_notification_listeners {_LISTENER}",
+    ]
+
+
+async def test_provision_modern_fire_os_does_not_touch_listener_setting(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    device = _fake_device({
+        f"pm list packages {FIRE2MQTT_PACKAGE}": f"package:{FIRE2MQTT_PACKAGE}",
+        "dumpsys package": "android.permission.WRITE_SECURE_SETTINGS: granted=true",
+    })
+    _patch_adb_imports["device"] = device
+
+    await async_provision(hass, "10.0.0.50", _cfg())
+
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    assert not any("enabled_notification_listeners" in c for c in calls)
+
+
 async def test_provision_downloads_and_installs_when_missing(
     hass: HomeAssistant, _patch_adb_imports
 ):

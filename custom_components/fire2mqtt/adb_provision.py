@@ -58,6 +58,10 @@ _NOTIFICATION_LISTENER_COMPONENT = (
     f"{FIRE2MQTT_PACKAGE}/{FIRE2MQTT_PACKAGE}.media.MediaNotificationListener"
 )
 
+# What the shell prints instead of failing when `cmd notification` doesn't exist (Fire OS 6 /
+# Android 7.1) — see _async_bind_notification_listener.
+_NO_CMD_NOTIFICATION_MARKERS = ("No shell command implementation", "Unknown command")
+
 # `pm install -r` refuses to replace an app signed with a different key. This happens
 # whenever the signing key changes (e.g. the old debug-signed builds → the release key).
 # Recovery requires a clean uninstall + fresh install, which wipes the app's stored config.
@@ -130,18 +134,46 @@ async def _async_bind_notification_listener(device) -> None:
     NotificationManagerService grant API rebinds — which we drive here over ADB. The off→on toggle
     guarantees a real state change so the framework unbinds then rebinds even when already listed.
 
-    Best-effort: logged but not fatal, so an older Fire OS lacking ``cmd notification`` (or a
-    transient failure) never blocks the rest of provisioning.
+    Fire OS 6 (Android 7.1) has no ``cmd notification`` — the shell just prints "No shell command
+    implementation." instead of failing. There the settings observer *does* rebind on a change, so
+    we fall back to toggling our component out of and back into ``enabled_notification_listeners``
+    (see _async_toggle_listener_setting).
+
+    Best-effort: logged but not fatal, so a transient failure never blocks the rest of provisioning.
     """
     try:
         await device.shell(
             f"cmd notification disallow_listener {_NOTIFICATION_LISTENER_COMPONENT}"
         )
-        await device.shell(
+        out = await device.shell(
             f"cmd notification allow_listener {_NOTIFICATION_LISTENER_COMPONENT}"
         )
+        if any(marker in (out or "") for marker in _NO_CMD_NOTIFICATION_MARKERS):
+            _LOGGER.debug("Fire2MQTT: no `cmd notification` on this device; toggling the setting")
+            await _async_toggle_listener_setting(device)
     except Exception as err:  # noqa: BLE001 - never let a bind nudge fail provisioning
         _LOGGER.warning("Fire2MQTT: could not bind notification listener over ADB: %s", err)
+
+
+async def _async_toggle_listener_setting(device) -> None:
+    """Rebind the listener by removing then re-adding it in ``enabled_notification_listeners``.
+
+    Only our own entry is touched — other apps' listeners are written back unchanged (never a blanket
+    ``settings delete``, which would revoke every listener on the device).
+    """
+    key = "enabled_notification_listeners"
+    current = (await device.shell(f"settings get secure {key}") or "").strip()
+    others = [
+        c for c in current.split(":")
+        if c and c != "null" and c != _NOTIFICATION_LISTENER_COMPONENT
+    ]
+    if others:
+        await device.shell(f"settings put secure {key} {shlex.quote(':'.join(others))}")
+    else:
+        # Our entry was the only one (or none was set): deleting the key removes just ours.
+        await device.shell(f"settings delete secure {key}")
+    enabled = ":".join([*others, _NOTIFICATION_LISTENER_COMPONENT])
+    await device.shell(f"settings put secure {key} {shlex.quote(enabled)}")
 
 
 async def _async_connect_device(hass: HomeAssistant, host: str, port: int):
