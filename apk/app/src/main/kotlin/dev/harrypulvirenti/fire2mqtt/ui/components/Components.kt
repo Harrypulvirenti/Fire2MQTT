@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
@@ -213,13 +214,25 @@ fun Header(connection: ConnState, isRunning: Boolean) {
                     Text("MQTT", color = c.text, style = Fire2MqttTheme.type.wordmark)
                 }
                 Spacer(Modifier.height(6.dp))
+                val version = appVersionName()
                 Text(
-                    stringResource(R.string.brand_tagline).uppercase(),
+                    stringResource(R.string.brand_tagline).uppercase() +
+                        (version?.let { " · v$it" } ?: ""),
                     color = c.text3, style = Fire2MqttTheme.type.tagline,
                 )
             }
         }
         GlobalStatusBadge(connection, isRunning)
+    }
+}
+
+/** The installed APK's versionName, so users can tell which build they're running. */
+@Composable
+private fun appVersionName(): String? {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+            .getOrNull()
     }
 }
 
