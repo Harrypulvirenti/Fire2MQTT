@@ -15,7 +15,9 @@ class Fire2MqttApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Logger.addLogWriter(LogcatWriter())
+        // Kermit's default config already includes a logcat writer; *adding* another printed
+        // every line twice, so replace the set instead.
+        Logger.setLogWriters(LogcatWriter())
         createNotificationChannel()
         startKoin {
             androidContext(this@Fire2MqttApp)
