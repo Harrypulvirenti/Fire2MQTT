@@ -70,6 +70,12 @@ LAUNCHER_PACKAGES = frozenset({
     "com.google.android.apps.tv.dreamx",  # Google TV screensaver
 })
 
+# Screensavers (a subset of LAUNCHER_PACKAGES): leaving one is user activity, unlike the
+# launcher handing the foreground to it.
+SCREENSAVER_PACKAGES = frozenset({
+    "com.google.android.apps.tv.dreamx",
+})
+
 # HA rejects states longer than 255 chars; cap coerced strings so a buggy or
 # malicious MQTT publisher can't blow up entity updates or bloat the recorder.
 MAX_PAYLOAD_STR_LENGTH = 255

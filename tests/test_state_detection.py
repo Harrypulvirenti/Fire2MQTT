@@ -2,7 +2,7 @@
 import pytest
 
 from custom_components.fire2mqtt.state_detection import evaluate
-from custom_components.fire2mqtt.data.rules import CURATED_RULES, DEFAULT_RULES
+from custom_components.fire2mqtt.data.rules import CURATED_RULES, DEFAULT_RULES, rules_for
 
 
 @pytest.mark.parametrize("app,state_int,expected", [
@@ -69,9 +69,9 @@ def test_unknown_app_returns_none_without_fallback():
     (0, "idle"),
 ])
 def test_uncurated_package_gets_default_rules(state_int: int, expected: str):
-    """An uncurated package falls back to DEFAULT_RULES (media_player._get_rules mirrors
-    this lookup), so it gets real playing/paused detection instead of being stuck at idle."""
-    rules = CURATED_RULES.get("com.some.unknown.app", DEFAULT_RULES)
+    """An uncurated package falls back to DEFAULT_RULES (via rules.rules_for), so it gets real
+    playing/paused detection instead of being stuck at idle."""
+    rules = rules_for("com.some.unknown.app", {})
     assert rules is DEFAULT_RULES
     result = evaluate(rules, {"media_session_state": state_int})
     assert result == expected

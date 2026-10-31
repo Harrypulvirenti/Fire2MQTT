@@ -14,6 +14,8 @@ media_session_state integers mirror Android PlaybackState.STATE_*:
 """
 from __future__ import annotations
 
+from .apps import canonical_package
+
 CURATED_RULES: dict[str, list] = {
     # ── Crunchyroll ──────────────────────────────────────────────────────
     # Verified by direct dumpsys media_session observation.
@@ -165,3 +167,15 @@ DEFAULT_RULES: list = [
     {"paused": {"media_session_state": 2}},
     "idle",
 ]
+
+
+def rules_for(package: str, user_rules: dict) -> list:
+    """Rules for ``package``: a user override, else the curated rule, else DEFAULT_RULES.
+
+    Aliases (e.g. a Fire-TV-specific build) resolve to the canonical package the curated rules
+    and user overrides are keyed by, so detection still works for them.
+    """
+    canonical = canonical_package(package)
+    if canonical in user_rules:
+        return user_rules[canonical]
+    return CURATED_RULES.get(canonical, DEFAULT_RULES)

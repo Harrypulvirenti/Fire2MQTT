@@ -191,7 +191,12 @@ async def test_media_stop_publishes(hass: HomeAssistant, online, mock_mqtt_publi
     assert (TOPIC_CMD_MEDIA, "stop") in mock_mqtt_publish.published
 
 
-async def test_next_track_publishes(hass: HomeAssistant, online, mock_mqtt_publish):
+async def test_next_track_publishes(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, mock_mqtt_publish
+):
+    # Next is only offered while a session is active.
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({"media_session_state": 3}))
+    await hass.async_block_till_done()
     await hass.services.async_call("media_player", "media_next_track", {"entity_id": ENTITY_ID}, blocking=True)
     assert (TOPIC_CMD_MEDIA, "next") in mock_mqtt_publish.published
 
@@ -414,6 +419,50 @@ async def test_google_tv_launcher_and_screensaver_keep_idle_clock(
     await hass.async_block_till_done()
     await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "off"
+
+
+async def test_leaving_screensaver_restarts_idle_clock(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    # Pressing HOME on the screensaver lands on the launcher: that's user activity, so an OFF
+    # player goes back to idle instead of staying off (#41).
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.launcherx", "name": "Google TV"}),
+    )
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=10))
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.dreamx", "name": "Ambient Mode"}),
+    )
+    freezer.tick(timedelta(minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.launcherx", "name": "Google TV"}),
+    )
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+
+async def test_next_previous_hidden_without_a_session(
+    hass: HomeAssistant, online, mock_mqtt_subscribe
+):
+    # Home screen after a boot: no session, so no `actions` and nothing to skip (#41).
+    await mock_mqtt_subscribe.deliver(TOPIC_PLAYBACK, json.dumps({
+        "media_session_state": 0, "audio_state": "idle",
+    }))
+    await hass.async_block_till_done()
+    feats = hass.states.get(ENTITY_ID).attributes["supported_features"]
+    assert not (feats & MediaPlayerEntityFeature.NEXT_TRACK)
+    assert not (feats & MediaPlayerEntityFeature.PREVIOUS_TRACK)
+    assert feats & MediaPlayerEntityFeature.PLAY
 
 
 async def test_next_previous_hidden_when_session_cannot_skip(

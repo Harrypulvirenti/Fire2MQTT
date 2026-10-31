@@ -10,9 +10,11 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import Fire2MqttConfigEntry
-from .const import MEDIA_SESSION_STATE_PLAYING
+from .const import CONF_STATE_DETECTION_RULES_OVERRIDE
 from .coordinator import Fire2MqttCoordinator
+from .data.rules import rules_for
 from .entity import Fire2MqttEntity
+from .state_detection import evaluate
 
 
 async def async_setup_entry(
@@ -21,9 +23,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data.coordinator
+    user_rules = entry.options.get(CONF_STATE_DETECTION_RULES_OVERRIDE, {})
     async_add_entities([
         ScreenOnSensor(coordinator),
-        PlayingSensor(coordinator),
+        PlayingSensor(coordinator, user_rules),
         ConnectivitySensor(coordinator),
     ])
 
@@ -31,23 +34,24 @@ async def async_setup_entry(
 class PlayingSensor(Fire2MqttEntity, BinarySensorEntity):
     """On while media is actively playing, off when paused/idle/stopped.
 
-    Reads the primary media session's state from the playback payload — a simple
-    'is something playing?' signal alongside the media_player entity's richer state.
+    Runs the playback payload through the same state-detection rules as the media player, so
+    per-app fallbacks (e.g. Jellyfin's `audio_state`) apply here too. Rules are picked by the app
+    that owns the playback, falling back to the foreground app.
     """
 
     _attr_name = "Playing"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_icon = "mdi:play-circle"
 
-    def __init__(self, coordinator: Fire2MqttCoordinator) -> None:
+    def __init__(self, coordinator: Fire2MqttCoordinator, user_rules: dict) -> None:
         super().__init__(coordinator, "playing")
+        self._user_rules = user_rules
 
     @property
     def is_on(self) -> bool:
-        return (
-            self.coordinator.data.playback.get("media_session_state")
-            == MEDIA_SESSION_STATE_PLAYING
-        )
+        playback = self.coordinator.data.playback
+        package = playback.get("app") or self.coordinator.data.app.get("package", "")
+        return evaluate(rules_for(package, self._user_rules), playback) == "playing"
 
 
 class ScreenOnSensor(Fire2MqttEntity, BinarySensorEntity):
