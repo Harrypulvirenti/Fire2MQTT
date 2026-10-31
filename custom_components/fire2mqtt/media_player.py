@@ -21,10 +21,12 @@ from .const import (
     CONF_STATE_DETECTION_RULES_OVERRIDE,
     DEFAULT_IDLE_TIMEOUT,
     LAUNCHER_PACKAGES,
+    MEDIA_SESSION_STATE_NONE,
+    SCREENSAVER_PACKAGES,
 )
 from .coordinator import Fire2MqttCoordinator
-from .data.apps import canonical_package, installed_curated
-from .data.rules import CURATED_RULES, DEFAULT_RULES
+from .data.apps import installed_curated
+from .data.rules import rules_for
 from .entity import Fire2MqttEntity
 from .state_detection import evaluate
 
@@ -114,10 +116,17 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
     def _handle_coordinator_update(self) -> None:
         package = self.coordinator.data.app.get("package", "")
         if package != self._last_package:
-            # Moving between home-screen packages (launcher <-> screensaver, or the
-            # launcher flicker Google TV emits) keeps the idle clock running.
+            # Moving between home-screen packages (launcher -> screensaver, or the
+            # launcher flicker Google TV emits) keeps the idle clock running. Leaving the
+            # screensaver for the launcher means someone pressed a key, so it restarts.
+            woke_from_screensaver = (
+                self._last_package in SCREENSAVER_PACKAGES
+                and package not in SCREENSAVER_PACKAGES
+            )
             still_home = (
-                package in LAUNCHER_PACKAGES and self._last_package in LAUNCHER_PACKAGES
+                package in LAUNCHER_PACKAGES
+                and self._last_package in LAUNCHER_PACKAGES
+                and not woke_from_screensaver
             )
             self._last_package = package
             if not still_home:
@@ -189,14 +198,6 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
             self.hass, _STATE_DEBOUNCE_SECONDS, _commit
         )
 
-    def _get_rules(self, package: str) -> list:
-        # Resolve aliases (e.g. a Fire-TV-specific build) to the canonical package
-        # the curated rules + any user override are keyed by, so detection still works.
-        canonical = canonical_package(package)
-        if canonical in self._user_rules:
-            return self._user_rules[canonical]
-        return CURATED_RULES.get(canonical, DEFAULT_RULES)
-
     def _raw_state(self) -> MediaPlayerState:
         """State implied by the latest payloads, before debouncing — a pure read of coordinator
         data. ``_debounce_state`` turns this into the committed state the entity actually reports."""
@@ -214,7 +215,7 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
             return MediaPlayerState.IDLE
 
         playback = self.coordinator.data.playback
-        rules = self._get_rules(current_package)
+        rules = rules_for(current_package, self._user_rules)
         detected = evaluate(rules, playback)
         return _HA_STATE_MAP.get(detected or "idle", MediaPlayerState.IDLE)
 
@@ -228,11 +229,17 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     @property
     def supported_features(self) -> MediaPlayerEntityFeature:
-        # Hide next/previous when the active session says it can't skip (e.g. a Cast session).
-        # No `actions` (older APK, or an app with no session) keeps the full static set.
+        # Hide next/previous when the active session says it can't skip (e.g. a Cast session),
+        # or when there's no session at all (nothing to skip, e.g. the home screen after a boot).
+        # A session without `actions` (older APK) keeps the full static set.
         features = self._attr_supported_features
-        actions = self.coordinator.data.playback.get("actions")
+        playback = self.coordinator.data.playback
+        actions = playback.get("actions")
         if actions is None:
+            if playback.get("media_session_state", MEDIA_SESSION_STATE_NONE) == MEDIA_SESSION_STATE_NONE:
+                features &= ~(
+                    MediaPlayerEntityFeature.NEXT_TRACK | MediaPlayerEntityFeature.PREVIOUS_TRACK
+                )
             return features
         if not actions & _ACTION_SKIP_TO_NEXT:
             features &= ~MediaPlayerEntityFeature.NEXT_TRACK
