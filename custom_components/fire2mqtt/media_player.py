@@ -51,11 +51,12 @@ _HA_STATE_MAP = {
 # responsive but every sub-second flicker is absorbed.
 _STATE_DEBOUNCE_SECONDS = 1.5
 
-# No TURN_ON/TURN_OFF: a sideloaded app can't wake the stick, and the TV powers on via the
-# remote's IR (not CEC from the stick), so a power button here could never work. Control TV
-# power via the TV's own HA integration / an IR blaster instead.
+# TURN_ON/TURN_OFF map to cmd/power "wake"/"sleep" (KEYCODE_WAKEUP/KEYCODE_SLEEP in the APK),
+# so the entity can put the Fire TV to sleep and wake it back up.
 SUPPORTED_FEATURES = (
-    MediaPlayerEntityFeature.PLAY
+    MediaPlayerEntityFeature.TURN_ON
+    | MediaPlayerEntityFeature.TURN_OFF
+    | MediaPlayerEntityFeature.PLAY
     | MediaPlayerEntityFeature.PAUSE
     | MediaPlayerEntityFeature.STOP
     | MediaPlayerEntityFeature.NEXT_TRACK
@@ -324,6 +325,12 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
 
     def _installed_apps(self) -> dict[str, tuple]:
         return installed_curated(self.coordinator.data.installed_packages)
+
+    async def async_turn_on(self) -> None:
+        await self.coordinator.async_power("wake")
+
+    async def async_turn_off(self) -> None:
+        await self.coordinator.async_power("sleep")
 
     async def async_media_play(self) -> None:
         await self.coordinator.async_media_command("play")
