@@ -36,4 +36,17 @@ class AppLauncher(private val context: Context) {
         logger.i { "Launched $packageName" }
         return true
     }
+
+    /**
+     * Brings up the home screen with a CATEGORY_HOME intent — the HOME fallback when the
+     * accessibility service isn't bound (Fire OS 6.7 refuses third-party accessibility services).
+     */
+    fun goHome() {
+        val intent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+            .onSuccess { logger.i { "Went home via launcher intent" } }
+            .onFailure { logger.e(it) { "Could not open the home screen: ${it.message}" } }
+    }
 }

@@ -16,11 +16,6 @@
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
 
-    <!-- Required for MediaSessionManager.getActiveSessions() via NotificationListenerService -->
-    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-        tools:ignore="ProtectedPermissions"
-        xmlns:tools="http://schemas.android.com/tools" />
-
     <!-- Required for app launching via startActivity -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission"
@@ -32,11 +27,6 @@
 
     <!-- Auto-start after boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- Key events (AccessibilityService approach) -->
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
-        tools:ignore="ProtectedPermissions"
-        xmlns:tools="http://schemas.android.com/tools" />
 
     <application
         android:name=".Fire2MqttApp"

@@ -50,10 +50,11 @@ class CommandRouter(
                 val keyCode = keyMap[payload.trim().uppercase()]
                 if (keyCode != null) {
                     logger.i { "Key command: ${payload.trim()}" }
-                    if (keyCode in MediaTransport.MEDIA_KEYS) {
-                        sendMediaKey(keyCode)
-                    } else {
-                        Fire2MqttAccessibilityService.sendKey(keyCode)
+                    when {
+                        keyCode in MediaTransport.MEDIA_KEYS -> sendMediaKey(keyCode)
+                        Fire2MqttAccessibilityService.sendKey(keyCode) -> Unit
+                        // Without the accessibility service HOME can still go through the launcher.
+                        keyCode == KeyEvent.KEYCODE_HOME -> appLauncher.goHome()
                     }
                 } else {
                     logger.w { "Unknown key: $payload" }
