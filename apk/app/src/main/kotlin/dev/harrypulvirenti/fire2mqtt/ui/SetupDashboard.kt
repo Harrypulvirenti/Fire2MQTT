@@ -186,7 +186,13 @@ fun SetupDashboard(
                             PermissionRow(PermIcon.Access,
                                 stringResource(R.string.perm_access_name),
                                 stringResource(R.string.perm_access_desc),
-                                state.perms.accessibility)
+                                state.perms.accessibility,
+                                warning = when {
+                                    !state.perms.accessibilityBlocked -> null
+                                    state.perms.usageAccess ->
+                                        stringResource(R.string.perm_access_blocked_fallback)
+                                    else -> stringResource(R.string.perm_access_blocked_no_usage)
+                                })
                             PermissionRow(PermIcon.Notif,
                                 stringResource(R.string.perm_notif_name),
                                 stringResource(R.string.perm_notif_desc),
@@ -227,6 +233,19 @@ private fun previewFirstRunState() = SetupUiState(
 @Composable
 private fun SetupDashboardConfiguredPreview() {
     Fire2MqttTheme { TvDesignScale { SetupDashboard(previewConfiguredState()) } }
+}
+
+@Preview(name = "Fire OS 6.7 · 1080p", device = Devices.TV_1080p)
+@Composable
+private fun SetupDashboardBlockedPreview() {
+    Fire2MqttTheme {
+        TvDesignScale {
+            SetupDashboard(previewConfiguredState().copy(
+                perms = Perms(accessibility = true, notification = true,
+                    accessibilityBlocked = true, usageAccess = true),
+            ))
+        }
+    }
 }
 
 @Preview(name = "First run · 1080p", device = Devices.TV_1080p)

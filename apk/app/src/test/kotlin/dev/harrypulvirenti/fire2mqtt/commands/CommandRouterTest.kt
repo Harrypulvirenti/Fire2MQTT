@@ -82,6 +82,24 @@ class CommandRouterTest {
         verify { Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_HOME) }
     }
 
+    @Test fun `cmdKey HOME falls back to the launcher when accessibility is not connected`() {
+        every { Fire2MqttAccessibilityService.sendKey(any()) } returns false
+        every { appLauncher.goHome() } just runs
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "HOME")
+        verify { appLauncher.goHome() }
+    }
+
+    @Test fun `cmdKey HOME skips the launcher when accessibility delivers it`() {
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "HOME")
+        verify(exactly = 0) { appLauncher.goHome() }
+    }
+
+    @Test fun `cmdKey BACK has no fallback when accessibility is not connected`() {
+        every { Fire2MqttAccessibilityService.sendKey(any()) } returns false
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "BACK")
+        verify(exactly = 0) { appLauncher.goHome() }
+    }
+
     @Test fun `cmdKey with unknown name does not dispatch`() {
         router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "UNKNOWN_KEY")
         verify(exactly = 0) { Fire2MqttAccessibilityService.sendKey(any()) }

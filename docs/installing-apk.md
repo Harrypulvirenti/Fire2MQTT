@@ -65,12 +65,14 @@ adb connect <fire-tv-ip>:5555
 adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd notification disallow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 adb shell cmd notification allow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
+adb shell appops set dev.harrypulvirenti.fire2mqtt GET_USAGE_STATS allow
 ```
 
 Without the two `cmd notification` lines the listener is listed as enabled but never bound, so
 `state/playback` is never published (title, artist and play/pause stay `unknown` in HA). The off→on toggle
 forces Fire OS to rebind it; re-run both lines if playback state disappears after a reinstall. The HA
-integration's ADB install and **Re-provision** button run all three commands for you.
+integration's ADB install and **Re-provision** button run all of these for you. The `appops` line grants
+usage access, which the app only uses where Fire OS refuses its accessibility service (see below).
 
 **Fire OS 6 (Android 7.1, e.g. the 1st-gen Fire TV Stick 4K `AFTMM`):** `cmd notification` doesn't exist
 there and just prints `No shell command implementation.` Instead, take the listener out of
@@ -95,8 +97,16 @@ on:
   (`state/app`). App launching (`cmd/launch`) works without it.
 - **Notification-listener access** — MediaSession metadata (`state/playback`).
 
-> Foreground-app detection runs on the accessibility service now; there is no separate Usage Access
-> permission anymore.
+> **Fire OS 6.7 (1st-gen Fire TV Stick 4K `AFTMM` and similar)** refuses every third-party accessibility
+> service: `adb logcat -b all | grep A11yAuthorizer` shows `"trust"#"false"` for the app, and the service is
+> never bound, whatever the setting says. The app detects this and falls back where it can:
+>
+> - **Current App** comes from usage stats instead, which needs the `appops set … GET_USAGE_STATS allow`
+>   line above. The app checks it about once a second while the screen is on.
+> - **HOME** opens the home screen through the launcher.
+> - **BACK, MENU and D-pad** need the accessibility service and are unavailable on these sticks.
+>
+> The app's Permissions card shows **Blocked** on the Accessibility row when this happens.
 >
 > A few Fire OS builds have `WRITE_SECURE_SETTINGS` removed by Amazon. If the grant doesn't stick, the app
 > can't self-enable and these features stay off.

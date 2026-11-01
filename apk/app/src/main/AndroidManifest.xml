@@ -16,8 +16,10 @@
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
 
-    <!-- Required for MediaSessionManager.getActiveSessions() via NotificationListenerService -->
-    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+    <!-- Foreground-app fallback where Fire OS refuses the accessibility service (Fire OS 6.7).
+         An appop the app can't grant itself: provisioning runs
+         `adb shell appops set <pkg> GET_USAGE_STATS allow` (see UsageStatsForegroundSource). -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
 
@@ -32,11 +34,6 @@
 
     <!-- Auto-start after boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- Key events (AccessibilityService approach) -->
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
-        tools:ignore="ProtectedPermissions"
-        xmlns:tools="http://schemas.android.com/tools" />
 
     <application
         android:name=".Fire2MqttApp"

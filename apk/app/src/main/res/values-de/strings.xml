@@ -68,6 +68,9 @@
     <string name="perm_access_desc">Vordergrund-App, Bildschirm und Lautstärke verfolgen</string>
     <string name="perm_enabled">Aktiv</string>
     <string name="perm_pending">Ausstehend</string>
+    <string name="perm_blocked">Blockiert</string>
+    <string name="perm_access_blocked_fallback">Von Fire OS blockiert · Aktuelle App über Nutzungszugriff</string>
+    <string name="perm_access_blocked_no_usage">Von Fire OS blockiert · in Home Assistant neu einrichten</string>
     <string name="perm_recheck">Erneut prüfen</string>
     <string name="perm_count_suffix">/ 2 aktiv</string>
 

@@ -180,10 +180,14 @@ adb shell pm grant dev.harrypulvirenti.fire2mqtt android.permission.WRITE_SECURE
 # Bind the notification listener (needed for state/playback):
 adb shell cmd notification disallow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 adb shell cmd notification allow_listener dev.harrypulvirenti.fire2mqtt/dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
+# Current App fallback for Fire OS 6.7, harmless elsewhere:
+adb shell appops set dev.harrypulvirenti.fire2mqtt GET_USAGE_STATS allow
 ```
 
 On Fire OS 6 (1st-gen Fire TV Stick 4K and older) `cmd notification` doesn't exist. See
 [docs/installing-apk.md](docs/installing-apk.md#5-grant-permissions-adb) for the alternative.
+Fire OS 6.7 also refuses third-party accessibility services, so on those sticks Current App comes
+from usage stats, HOME goes through the launcher, and BACK, MENU and D-pad are unavailable.
 
 Then open the app on the Fire TV and enter your broker address, username/password
 (toggle **TLS** for `mqtts://` on port 8883), and a device ID matching the one in HA.

@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.net.ConnectivityManager
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import co.touchlab.kermit.Logger
@@ -28,6 +29,7 @@ import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 import dev.harrypulvirenti.fire2mqtt.system.InstalledAppsProvider
 import dev.harrypulvirenti.fire2mqtt.system.ScreenWatcher
 import dev.harrypulvirenti.fire2mqtt.system.SecureSettingsManager
+import dev.harrypulvirenti.fire2mqtt.system.UsageStatsForegroundSource
 import dev.harrypulvirenti.fire2mqtt.system.VolumeWatcher
 import dev.harrypulvirenti.fire2mqtt.data.SettingsRepository
 import dev.harrypulvirenti.fire2mqtt.ui.MainActivity
@@ -76,7 +78,7 @@ class Fire2MqttService : Service() {
         // If WRITE_SECURE_SETTINGS is held, self-enable accessibility + notification-listener
         // access so the watchers (key injection, media sessions, foreground app) work.
         SecureSettingsManager.ensureAllEnabled(this)
-        healAccessibilityBinding()
+        logCapabilities()
         val previousPipeline = pipelineJob
         pipelineJob = scope.launch {
             if (previousPipeline?.isActive == true) {
@@ -92,21 +94,33 @@ class Fire2MqttService : Service() {
     }
 
     /**
-     * Give the framework a moment to bind the accessibility service; if it still hasn't (Fire OS 6
-     * after a crash or update), nudge it — foreground-app detection and key injection depend on it.
+     * Once the framework has had a moment to bind the accessibility service, log what this
+     * device can actually do. Fire OS 6.7 refuses third-party accessibility services, which only
+     * shows up as "enabled but not bound"; this line makes that visible in a field log.
      */
-    private fun healAccessibilityBinding() {
+    private fun logCapabilities() {
         scope.launch {
             delay(ACCESSIBILITY_BIND_GRACE_MS)
-            val attempted = SecureSettingsManager.rebindAccessibilityIfUnbound(this@Fire2MqttService) {
-                Fire2MqttAccessibilityService.instance != null
+            val ctx = this@Fire2MqttService
+            val enabled = SecureSettingsManager.isAccessibilityEnabled(ctx)
+            val bound = Fire2MqttAccessibilityService.instance != null
+            val usageAccess = UsageStatsForegroundSource.hasUsageAccess(ctx)
+            logger.i {
+                "Capabilities: sdk=${Build.VERSION.SDK_INT} accessibility enabled=$enabled " +
+                    "bound=$bound usageAccess=$usageAccess " +
+                    "notificationListener=${SecureSettingsManager.isNotificationListenerEnabled(ctx)}"
             }
-            if (!attempted) return@launch
-            delay(ACCESSIBILITY_BIND_GRACE_MS)
-            if (Fire2MqttAccessibilityService.instance != null) {
-                logger.i { "Accessibility service bound after re-enable" }
-            } else {
-                logger.w { "Accessibility service still not bound — foreground-app detection is unavailable" }
+            if (enabled && !bound) {
+                logger.w {
+                    "Fire OS did not bind the accessibility service (Fire OS 6.7 refuses " +
+                        "sideloaded ones). HOME uses the launcher; BACK, MENU and D-pad are " +
+                        "unavailable. " + if (usageAccess) {
+                            "Current App uses usage stats instead."
+                        } else {
+                            "Current App needs usage access: re-provision from Home Assistant, or " +
+                                "run adb shell appops set $packageName GET_USAGE_STATS allow"
+                        }
+                }
             }
         }
     }

@@ -105,6 +105,51 @@ async def test_provision_already_installed_grants_and_launches(
 
 
 _LISTENER = f"{FIRE2MQTT_PACKAGE}/{FIRE2MQTT_PACKAGE}.media.MediaNotificationListener"
+_USAGE_GRANT = f"appops set {FIRE2MQTT_PACKAGE} GET_USAGE_STATS allow"
+
+
+async def test_provision_grants_usage_access_before_launch(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    """Fire OS 6.7 refuses our accessibility service; Current App falls back to usage stats."""
+    device = _fake_device({
+        f"pm list packages {FIRE2MQTT_PACKAGE}": f"package:{FIRE2MQTT_PACKAGE}",
+        "dumpsys package": "android.permission.WRITE_SECURE_SETTINGS: granted=true",
+    })
+    _patch_adb_imports["device"] = device
+
+    await async_provision(hass, "10.0.0.50", _cfg())
+
+    calls = [c.args[0] for c in device.shell.call_args_list]
+    assert calls.index(_USAGE_GRANT) < next(i for i, c in enumerate(calls) if "am start" in c)
+
+
+async def test_provision_usage_access_error_does_not_fail(
+    hass: HomeAssistant, _patch_adb_imports
+):
+    device = _fake_device({
+        f"pm list packages {FIRE2MQTT_PACKAGE}": f"package:{FIRE2MQTT_PACKAGE}",
+        "dumpsys package": "android.permission.WRITE_SECURE_SETTINGS: granted=true",
+        "appops set": "Error: Unknown operation string: GET_USAGE_STATS",
+    })
+    _patch_adb_imports["device"] = device
+
+    result = await async_provision(hass, "10.0.0.50", _cfg())
+
+    assert result.launched is True
+
+
+async def test_update_apk_grants_usage_access(hass: HomeAssistant, _patch_adb_imports):
+    device = _fake_device({"pm install": "Success"})
+    _patch_adb_imports["device"] = device
+
+    with patch(
+        "custom_components.fire2mqtt.adb_provision._async_download_apk",
+        AsyncMock(return_value="/tmp/x.apk"),
+    ):
+        await async_update_apk(hass, "10.0.0.50")
+
+    assert _USAGE_GRANT in [c.args[0] for c in device.shell.call_args_list]
 
 
 async def test_provision_fire_os_6_toggles_listener_setting(

@@ -68,6 +68,9 @@
     <string name="perm_access_desc">Rileva app in primo piano, schermo e volume</string>
     <string name="perm_enabled">Attivo</string>
     <string name="perm_pending">In attesa</string>
+    <string name="perm_blocked">Bloccato</string>
+    <string name="perm_access_blocked_fallback">Bloccato da Fire OS · App corrente tramite accesso utilizzo</string>
+    <string name="perm_access_blocked_no_usage">Bloccato da Fire OS · riesegui il provisioning da Home Assistant</string>
     <string name="perm_recheck">Ricontrolla</string>
     <string name="perm_count_suffix">/ 2 attivi</string>
 

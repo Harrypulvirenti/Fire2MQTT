@@ -27,10 +27,8 @@ data class ForegroundAppEvent(val packageName: String, val appName: String)
 /**
  * Reports the foreground app. Detection is driven by [Fire2MqttAccessibilityService],
  * which emits the package of each window that comes to the foreground
- * (TYPE_WINDOW_STATE_CHANGED). This replaces UsageStatsManager polling — the
- * PACKAGE_USAGE_STATS permission cannot be granted to a sideloaded app on Fire OS,
- * whereas the accessibility service is already required for key injection and can be
- * enabled via WRITE_SECURE_SETTINGS.
+ * (TYPE_WINDOW_STATE_CHANGED). Where Fire OS refuses to bind that service (Fire OS 6.7),
+ * [UsageStatsForegroundSource] fills in; both feed [source] (see AppModule).
  *
  * On Google TV the launcher fires a window event *after* the app it just opened (same second),
  * which would report "Google TV" while YouTube is on screen; such launcher echoes are dropped.
