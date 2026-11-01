@@ -16,6 +16,13 @@
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
 
+    <!-- Foreground-app fallback where Fire OS refuses the accessibility service (Fire OS 6.7).
+         An appop the app can't grant itself: provisioning runs
+         `adb shell appops set <pkg> GET_USAGE_STATS allow` (see UsageStatsForegroundSource). -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions"
+        xmlns:tools="http://schemas.android.com/tools" />
+
     <!-- Required for app launching via startActivity -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission"

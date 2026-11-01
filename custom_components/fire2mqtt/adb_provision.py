@@ -155,6 +155,22 @@ async def _async_bind_notification_listener(device) -> None:
         _LOGGER.warning("Fire2MQTT: could not bind notification listener over ADB: %s", err)
 
 
+async def _async_grant_usage_access(device) -> None:
+    """Grant the usage-stats appop: the app's Current App fallback where Fire OS refuses its
+    accessibility service (Fire OS 6.7 allowlists them; ours never binds). It's an appop, so the
+    app can't grant it itself, but the ADB shell can. Harmless where accessibility works, since
+    the app only reads usage stats while the service is unbound.
+
+    Best-effort like the listener bind: ``appops`` prints errors instead of failing, so log them.
+    """
+    try:
+        out = await device.shell(f"appops set {FIRE2MQTT_PACKAGE} GET_USAGE_STATS allow")
+        if out and out.strip():
+            _LOGGER.warning("Fire2MQTT: granting usage access over ADB said: %s", out.strip())
+    except Exception as err:  # noqa: BLE001 - never let this fail provisioning
+        _LOGGER.warning("Fire2MQTT: could not grant usage access over ADB: %s", err)
+
+
 async def _async_toggle_listener_setting(device) -> None:
     """Rebind the listener by removing then re-adding it in ``enabled_notification_listeners``.
 
@@ -267,6 +283,7 @@ async def async_update_apk(
             # The in-place reinstall leaves the notification listener enabled-but-unbound; rebind
             # it before relaunching so the app's MediaSessionWatcher re-registers on start.
             await _async_bind_notification_listener(device)
+            await _async_grant_usage_access(device)
             await device.shell(f"am start -n {FIRE2MQTT_LAUNCH_COMPONENT}")
         except ProvisionError as err:
             if err.reason != "signature_mismatch" or recovery_config is None:
@@ -279,6 +296,7 @@ async def async_update_apk(
             await _async_install_latest_apk(hass, device, fresh=True)
             await device.shell(f"pm grant {FIRE2MQTT_PACKAGE} {_WRITE_SECURE_SETTINGS}")
             await _async_bind_notification_listener(device)
+            await _async_grant_usage_access(device)
             await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, recovery_config))
     finally:
         await device.close()
@@ -314,6 +332,7 @@ async def async_provision(
         # actually bound (not just enabled in the secure setting) on Fire OS, and binding first
         # means the app's MediaSessionWatcher registers successfully on its very first start.
         await _async_bind_notification_listener(device)
+        await _async_grant_usage_access(device)
         # Launch with the broker config as intent extras so the app stores it without the
         # user typing anything on the TV; this also runs SecureSettingsManager.ensureAllEnabled().
         await device.shell(_build_launch_cmd(FIRE2MQTT_LAUNCH_COMPONENT, config))

@@ -18,12 +18,15 @@ enum class ConnState { Disconnected, Testing, Connected, Failed, Running }
 /**
  * Permission state. On Fire OS the app self-enables Accessibility + Notification-listener
  * access via WRITE_SECURE_SETTINGS (see SecureSettingsManager) — these two are all that's
- * needed (foreground detection runs on the accessibility service; Usage Access was dropped).
+ * needed. [accessibilityBlocked] flags a device that has the setting but refuses to bind the
+ * service (Fire OS 6.7); Current App then needs [usageAccess] (granted over ADB).
  */
 @Immutable
 data class Perms(
     val accessibility: Boolean = false,
     val notification: Boolean = false,
+    val accessibilityBlocked: Boolean = false,
+    val usageAccess: Boolean = false,
 ) {
     val grantedCount: Int = listOf(accessibility, notification).count { it }
     val allGranted: Boolean = accessibility && notification

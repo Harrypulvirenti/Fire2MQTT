@@ -2,12 +2,15 @@ package dev.harrypulvirenti.fire2mqtt.di
 
 import android.content.ComponentName
 import android.content.Context
+import dev.harrypulvirenti.fire2mqtt.commands.Fire2MqttAccessibilityService
 import dev.harrypulvirenti.fire2mqtt.commands.MediaTransport
 import dev.harrypulvirenti.fire2mqtt.media.MediaNotificationListener
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
 import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
+import dev.harrypulvirenti.fire2mqtt.system.UsageStatsForegroundSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.merge
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.Module
@@ -24,10 +27,19 @@ import org.koin.core.annotation.Single
 @ComponentScan("dev.harrypulvirenti.fire2mqtt")
 class AppModule {
 
-    /** Keeps ForegroundAppWatcher's default static `source` (a defaulted ctor arg). */
+    /**
+     * Foreground app from the accessibility service, plus the usage-stats fallback for devices
+     * that refuse to bind it (Fire OS 6.7). The fallback idles while the service is bound.
+     */
     @Factory
     fun foregroundAppWatcher(context: Context): ForegroundAppWatcher =
-        ForegroundAppWatcher(context)
+        ForegroundAppWatcher(
+            context,
+            source = merge(
+                Fire2MqttAccessibilityService.foregroundPackages,
+                UsageStatsForegroundSource(context).packages(),
+            ),
+        )
 
     /** ComponentName isn't a graph type — build it from the app context. */
     @Factory

@@ -60,6 +60,8 @@ class SetupViewModelTest {
             every { enableAll() } returns true
             every { hasAccessibility() } returns true
             every { hasNotification() } returns true
+            every { isAccessibilityBound() } returns true
+            every { hasUsageAccess() } returns false
         }
         connectionTester = mockk()
     }
@@ -104,6 +106,25 @@ class SetupViewModelTest {
         vm()
         advanceUntilIdle()
         verify { permissionChecker.enableAll() }
+    }
+
+    @Test fun `enabled accessibility that never binds is reported as blocked`() = runTest(dispatcher) {
+        every { permissionChecker.isAccessibilityBound() } returns false
+        every { permissionChecker.hasUsageAccess() } returns true
+        val vm = vm()
+        advanceUntilIdle()
+        val perms = vm.state.value.perms
+        assertTrue(perms.accessibilityBlocked)
+        assertTrue(perms.usageAccess)
+        // Blocked doesn't gate Start: the setting is on and the fallbacks still work.
+        assertTrue(perms.allGranted)
+    }
+
+    @Test fun `accessibility that binds within the wait is not blocked`() = runTest(dispatcher) {
+        every { permissionChecker.isAccessibilityBound() } returnsMany listOf(false, false, true)
+        val vm = vm()
+        advanceUntilIdle()
+        assertFalse(vm.state.value.perms.accessibilityBlocked)
     }
 
     // --- field setters ---

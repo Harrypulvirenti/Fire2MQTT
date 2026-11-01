@@ -72,6 +72,9 @@
     <string name="perm_access_desc">Track foreground app, screen &amp; volume</string>
     <string name="perm_enabled">Enabled</string>
     <string name="perm_pending">Pending</string>
+    <string name="perm_blocked">Blocked</string>
+    <string name="perm_access_blocked_fallback">Blocked by Fire OS · Current App uses Usage Access</string>
+    <string name="perm_access_blocked_no_usage">Blocked by Fire OS · re-provision from Home Assistant</string>
     <string name="perm_recheck">Re-check</string>
     <string name="perm_count_suffix">/ 2 enabled</string>
 

@@ -13,6 +13,7 @@ import dev.harrypulvirenti.fire2mqtt.mqtt.TestResult
 import dev.harrypulvirenti.fire2mqtt.service.Fire2MqttService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -280,14 +281,29 @@ class SetupViewModel(
         val wss = permissionChecker.hasWriteSecureSettings()
         // Once WRITE_SECURE_SETTINGS is held, self-enable both accesses automatically.
         if (wss) permissionChecker.enableAll()
+        val accessibility = permissionChecker.hasAccessibility()
         PermSnapshot(
             perms = Perms(
-                accessibility = permissionChecker.hasAccessibility(),
-                notification  = permissionChecker.hasNotification(),
+                accessibility        = accessibility,
+                notification         = permissionChecker.hasNotification(),
+                accessibilityBlocked = accessibility && !awaitAccessibilityBound(),
+                usageAccess          = permissionChecker.hasUsageAccess(),
             ),
             wss   = wss,
             adbIp = localIp(),
         )
+    }
+
+    /**
+     * A just-enabled service binds a moment later, so give it [ACCESSIBILITY_BIND_WAIT_MS]
+     * before calling it blocked. A device that refuses it (Fire OS 6.7) never binds.
+     */
+    private suspend fun awaitAccessibilityBound(): Boolean {
+        repeat((ACCESSIBILITY_BIND_WAIT_MS / ACCESSIBILITY_BIND_POLL_MS).toInt()) {
+            if (permissionChecker.isAccessibilityBound()) return true
+            delay(ACCESSIBILITY_BIND_POLL_MS)
+        }
+        return permissionChecker.isAccessibilityBound()
     }
 
     private fun SetupUiState.withPerms(snap: PermSnapshot): SetupUiState = copy(
@@ -309,5 +325,7 @@ class SetupViewModel(
     companion object {
         private const val PORT_PLAIN_DEFAULT = 1883
         private const val PORT_TLS_DEFAULT = 8883
+        private const val ACCESSIBILITY_BIND_WAIT_MS = 3_000L
+        private const val ACCESSIBILITY_BIND_POLL_MS = 250L
     }
 }

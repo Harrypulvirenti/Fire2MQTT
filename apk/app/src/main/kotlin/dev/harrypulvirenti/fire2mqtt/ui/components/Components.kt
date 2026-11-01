@@ -708,7 +708,14 @@ private fun PermIcon.vector(): ImageVector = when (this) {
 
 /** Non-actionable status row: green when the access is enabled, dim "Pending" otherwise. */
 @Composable
-fun PermissionRow(icon: PermIcon, name: String, desc: String, enabled: Boolean) {
+fun PermissionRow(
+    icon: PermIcon,
+    name: String,
+    desc: String,
+    enabled: Boolean,
+    /** Set when the access is granted but not working (e.g. Fire OS refused to bind the service). */
+    warning: String? = null,
+) {
     val c = Fire2MqttTheme.colors
     val rowBg = if (enabled) c.green.copy(alpha = .07f) else c.surface2
     val rowBorder = if (enabled) c.green.copy(alpha = .2f) else c.line
@@ -737,11 +744,15 @@ fun PermissionRow(icon: PermIcon, name: String, desc: String, enabled: Boolean) 
         Column(Modifier.weight(1f)) {
             Text(name, color = c.text, style = Fire2MqttTheme.type.label)
             Spacer(Modifier.height(4.dp))
-            Text(desc, color = c.text3, style = Fire2MqttTheme.type.bodySmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(warning ?: desc, color = if (warning != null) c.ember2 else c.text3,
+                style = Fire2MqttTheme.type.bodySmall,
+                maxLines = if (warning != null) 2 else 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(12.dp))
-        if (enabled) {
+        if (warning != null) {
+            Text(stringResource(R.string.perm_blocked), color = c.ember2,
+                style = Fire2MqttTheme.type.itemEmphasis)
+        } else if (enabled) {
             Row(
                 Modifier
                     .clip(CircleShape)
