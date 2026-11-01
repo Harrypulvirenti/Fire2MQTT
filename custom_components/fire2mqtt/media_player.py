@@ -100,6 +100,7 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         # Tracked HA-side so a skewed device clock can't break standby detection.
         self._package_since: datetime.datetime | None = None
         self._last_package: str | None = None
+        self._last_online: bool | None = None
         self._cancel_standby_timer: CALLBACK_TYPE | None = None
         # Debounced state machine: `_committed_state` is what HA sees; `_pending_state` is a
         # candidate waiting out the settle window before it's committed (see _debounce_state).
@@ -115,7 +116,17 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         package = self.coordinator.data.app.get("package", "")
-        if package != self._last_package:
+        online = self.coordinator.data.online
+        # Coming back online usually means a boot, and a booted device on the launcher isn't
+        # idle yet even though the retained package hasn't changed. A broker or Wi-Fi blip
+        # also lands here; that only delays OFF by one timeout.
+        came_online = online and self._last_online is False
+        self._last_online = online
+        if came_online:
+            self._last_package = package
+            self._package_since = dt_util.utcnow()
+            self._schedule_standby_check(package)
+        elif package != self._last_package:
             # Moving between home-screen packages (launcher -> screensaver, or the
             # launcher flicker Google TV emits) keeps the idle clock running. Leaving the
             # screensaver for the launcher means someone pressed a key, so it restarts.
