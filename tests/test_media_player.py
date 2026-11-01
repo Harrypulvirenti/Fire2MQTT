@@ -451,6 +451,37 @@ async def test_leaving_screensaver_restarts_idle_clock(
     assert hass.states.get(ENTITY_ID).state == "idle"
 
 
+async def test_coming_back_online_restarts_idle_clock(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    # A power cut on the launcher: the retained package doesn't change across the boot, but the
+    # device that comes back online is freshly awake, not idle for 10 minutes (#41).
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP,
+        json.dumps({"package": "com.google.android.apps.tv.launcherx", "name": "Google TV"}),
+    )
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+    await mock_mqtt_subscribe.deliver(TOPIC_STATUS, "offline")
+    await hass.async_block_till_done()
+    await mock_mqtt_subscribe.deliver(TOPIC_STATUS, "online")
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+    # The fresh clock still runs out.
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+
 async def test_next_previous_hidden_without_a_session(
     hass: HomeAssistant, online, mock_mqtt_subscribe
 ):
