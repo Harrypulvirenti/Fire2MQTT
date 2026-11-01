@@ -183,6 +183,9 @@ sleep
 wake
 ```
 
+- `sleep` locks the screen through the accessibility service, so it needs Android 9+ (Fire OS 7+) with the service bound. It does nothing on Fire OS 6.7, which refuses the service.
+- `wake` is accepted but does nothing on any Fire TV: a sideloaded app has no way to send a wake key. Without CEC the stick couldn't turn the TV on anyway.
+
 ### `fire2mqtt/<device_id>/cmd/media`
 ```
 play | pause | play_pause | next | prev | stop
