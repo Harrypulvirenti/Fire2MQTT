@@ -504,6 +504,25 @@ async def test_leaving_the_screensaver_restarts_idle_clock(
     assert hass.states.get(ENTITY_ID).state == "idle"
 
 
+async def test_waking_from_sleep_restarts_idle_clock(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    # Asleep on the launcher past the timeout: waking up is fresh activity, not idle time.
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.tv.launcher", "name": "Fire TV"})
+    )
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False}))
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": True}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
+
+
 async def test_next_previous_hidden_without_a_session(
     hass: HomeAssistant, online, mock_mqtt_subscribe
 ):

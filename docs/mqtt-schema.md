@@ -187,8 +187,8 @@ wake
 ```
 
 - `sleep` locks the screen through the accessibility service, so it needs Android 9+ (Fire OS 7+) with the service bound. It does nothing on Fire OS 6.7, which refuses the service.
-- `wake` turns the screen on with a wake lock and ends the screensaver. It can't turn the TV on unless the TV follows the stick over HDMI-CEC.
-- `cmd/launch` and `cmd/key HOME` also end the screensaver first, so the app opens in front of it.
+- `wake` takes a screen wake lock (`ACQUIRE_CAUSES_WAKEUP`), meant to wake the stick and end the screensaver. Not yet confirmed on hardware. It can't turn the TV on unless the TV follows the stick over HDMI-CEC.
+- `cmd/launch` and `cmd/key HOME` take the same wake lock first, so the app should open in front of the screensaver rather than behind it (also awaiting confirmation on hardware).
 
 ### `fire2mqtt/<device_id>/cmd/media`
 ```
