@@ -227,6 +227,8 @@ class ScreenPayload:
     """Models the ``state/screen`` MQTT topic payload."""
 
     on: bool = False
+    # The screensaver is up; ``on`` stays true meanwhile. Absent from APKs before 0.8.0.
+    dreaming: bool = False
     ts: int = 0
 
     @classmethod
@@ -239,6 +241,7 @@ class ScreenPayload:
         """Validate/coerce *raw* and return a plain normalised dict."""
         return {
             "on": _coerce_bool(raw.get("on"), "on", False, logger),
+            "dreaming": _coerce_bool(raw.get("dreaming"), "dreaming", False, logger),
             "ts": _coerce_int(raw.get("ts"), "ts", 0, logger) or 0,
         }
 

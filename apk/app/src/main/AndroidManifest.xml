@@ -34,6 +34,8 @@
 
     <!-- Auto-start after boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- ScreenWaker: ends the screensaver before a launch/HOME and handles cmd/power wake. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".Fire2MqttApp"

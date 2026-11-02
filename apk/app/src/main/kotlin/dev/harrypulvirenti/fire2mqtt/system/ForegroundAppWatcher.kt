@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 private val logger = Logger.withTag("Fire2MQTT/ForegroundApp")
 
@@ -54,6 +55,7 @@ class ForegroundAppWatcher(
                 }
                 ForegroundAppEvent(pkg, name)
             }
+            .onEach { current = it.packageName }
 
     private fun Flow<String>.dropLauncherFlicker(): Flow<String> = flow {
         var lastEmitted: String? = null
@@ -74,5 +76,15 @@ class ForegroundAppWatcher(
             lastEmitted = pkg
             emit(pkg)
         }
+    }
+
+    companion object {
+        /**
+         * The last reported foreground package, whichever source detected it. MediaTransport
+         * reads this; the accessibility flow alone is empty on Fire OS 6.7.
+         */
+        @Volatile
+        var current: String? = null
+            private set
     }
 }

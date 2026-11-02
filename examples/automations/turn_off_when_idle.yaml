@@ -1,3 +1,5 @@
+# Needs Fire OS 7+ (Android 9+): cmd/power sleep goes through the accessibility service,
+# which Fire OS 6.7 refuses. See docs/mqtt-schema.md.
 alias: "Fire TV — Sleep when idle on home screen"
 description: "Puts the Fire TV to sleep after it has been on the home screen launcher for 15 minutes."
 trigger:

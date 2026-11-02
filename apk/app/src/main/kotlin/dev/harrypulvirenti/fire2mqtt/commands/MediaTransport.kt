@@ -7,6 +7,7 @@ import android.media.session.MediaSessionManager
 import android.view.KeyEvent
 import co.touchlab.kermit.Logger
 import dev.harrypulvirenti.fire2mqtt.media.MediaSessionWatcher
+import dev.harrypulvirenti.fire2mqtt.system.ForegroundAppWatcher
 
 private val logger = Logger.withTag("Fire2MQTT/MediaTransport")
 
@@ -23,9 +24,7 @@ private val logger = Logger.withTag("Fire2MQTT/MediaTransport")
 class MediaTransport(
     context: Context,
     private val notificationListenerComponent: ComponentName,
-    private val foregroundPackage: () -> String? = {
-        Fire2MqttAccessibilityService.foregroundPackages.replayCache.lastOrNull()
-    },
+    private val foregroundPackage: () -> String? = { ForegroundAppWatcher.current },
 ) {
     private val manager = context.getSystemService(MediaSessionManager::class.java)
 

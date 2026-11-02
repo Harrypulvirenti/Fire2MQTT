@@ -25,6 +25,7 @@ from tests.conftest import (
     TOPIC_CMD_MEDIA,
     TOPIC_CMD_VOLUME,
     TOPIC_PLAYBACK,
+    TOPIC_SCREEN,
     TOPIC_STATUS,
     TOPIC_VOLUME,
 )
@@ -341,7 +342,6 @@ async def test_volume_down_publishes_step(hass: HomeAssistant, online, mock_mqtt
 
 
 async def test_screen_off_reports_off(hass: HomeAssistant, online, mock_mqtt_subscribe):
-    from tests.conftest import TOPIC_SCREEN
 
     await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": False, "ts": 1}))
     await hass.async_block_till_done()
@@ -480,6 +480,28 @@ async def test_coming_back_online_restarts_idle_clock(
     await hass.async_block_till_done()
     await _settle(hass)
     assert hass.states.get(ENTITY_ID).state == "off"
+
+
+async def test_leaving_the_screensaver_restarts_idle_clock(
+    hass: HomeAssistant, online, mock_mqtt_subscribe, freezer
+):
+    # Fire TV keeps the launcher as the foreground app while the screensaver runs, so only
+    # state/screen shows someone dismissing it (#45).
+    await mock_mqtt_subscribe.deliver(
+        TOPIC_APP, json.dumps({"package": "com.amazon.tv.launcher", "name": "Fire TV"})
+    )
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": True, "dreaming": True}))
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "off"
+
+    await mock_mqtt_subscribe.deliver(TOPIC_SCREEN, json.dumps({"on": True, "dreaming": False}))
+    await hass.async_block_till_done()
+    await _settle(hass)
+    assert hass.states.get(ENTITY_ID).state == "idle"
 
 
 async def test_next_previous_hidden_without_a_session(

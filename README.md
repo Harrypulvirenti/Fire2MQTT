@@ -228,7 +228,7 @@ Ready-to-paste automations are in [`examples/automations/`](examples/automations
 | `dim_lights_on_playback.yaml` | Dim lights when playing, restore when paused/stopped |
 | `pause_on_doorbell.yaml` | Pause when doorbell rings, auto-resume after 60 s |
 | `pause_when_room_empty.yaml` | Pause when room empties, resume on return |
-| `turn_off_when_idle.yaml` | Sleep after 15 min on home screen |
+| `turn_off_when_idle.yaml` | Sleep after 15 min on home screen (Fire OS 7+) |
 | `watching_tv_scene.yaml` | Trigger a scene when a streaming app starts playing |
 
 ---
