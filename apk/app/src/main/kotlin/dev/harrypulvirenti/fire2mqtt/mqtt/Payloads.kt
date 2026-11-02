@@ -53,6 +53,8 @@ data class InstalledAppsPayload(
 @Serializable
 data class ScreenPayload(
     val on: Boolean,
+    /** The screensaver is up. `on` stays true meanwhile (the device is still interactive). */
+    val dreaming: Boolean = false,
     val ts: Long = System.currentTimeMillis(),
 )
 

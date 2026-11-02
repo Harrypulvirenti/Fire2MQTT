@@ -101,6 +101,8 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         self._package_since: datetime.datetime | None = None
         self._last_package: str | None = None
         self._last_online: bool | None = None
+        self._last_dreaming = False
+        self._last_screen_on: bool | None = None
         self._cancel_standby_timer: CALLBACK_TYPE | None = None
         # Debounced state machine: `_committed_state` is what HA sees; `_pending_state` is a
         # candidate waiting out the settle window before it's committed (see _debounce_state).
@@ -122,7 +124,15 @@ class Fire2MqttMediaPlayer(Fire2MqttEntity, MediaPlayerEntity):
         # also lands here; that only delays OFF by one timeout.
         came_online = online and self._last_online is False
         self._last_online = online
-        if came_online:
+        # Waking from sleep or leaving the screensaver (someone pressed a key) doesn't change the
+        # foreground app on Fire TV, so they only show up on state/screen.
+        screen_on = self.coordinator.data.screen.get("on")
+        dreaming = bool(self.coordinator.data.screen.get("dreaming"))
+        woke_up = screen_on is True and self._last_screen_on is False
+        left_screensaver = self._last_dreaming and not dreaming
+        self._last_screen_on = screen_on
+        self._last_dreaming = dreaming
+        if came_online or woke_up or left_screensaver:
             self._last_package = package
             self._package_since = dt_util.utcnow()
             self._schedule_standby_check(package)

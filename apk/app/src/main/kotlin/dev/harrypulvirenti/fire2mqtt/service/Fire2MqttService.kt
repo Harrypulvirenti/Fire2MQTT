@@ -285,8 +285,10 @@ class Fire2MqttService : Service() {
             launch {
                 this@Fire2MqttService.get<ScreenWatcher>().screenStateFlow()
                     .catch { logger.e(it) { "Screen error: ${it.message}" } }
-                    .collect { on ->
-                        val json = WireJson.encodeToString(ScreenPayload(on = on))
+                    .collect { screen ->
+                        val json = WireJson.encodeToString(
+                            ScreenPayload(on = screen.on, dreaming = screen.dreaming)
+                        )
                         client.publish(TopicSchema.stateScreen(prefix, deviceId), json, retain = true)
                     }
             }

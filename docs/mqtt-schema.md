@@ -127,14 +127,17 @@ restart re-publishes after an install/uninstall.
 ---
 
 ### `fire2mqtt/<device_id>/state/screen`
-Published on `ACTION_SCREEN_ON` / `ACTION_SCREEN_OFF` system broadcasts.
+Published on `ACTION_SCREEN_ON` / `ACTION_SCREEN_OFF` / `ACTION_DREAMING_STARTED` / `ACTION_DREAMING_STOPPED` system broadcasts.
 
 ```json
 {
   "on": true,
+  "dreaming": false,
   "ts": 1747000000000
 }
 ```
+
+- `dreaming` (optional, default `false`): the screensaver is up. `on` stays `true` while it runs. On Fire TV the screensaver doesn't change `state/app`, so this is the only signal that it started or ended. Added in 0.8.0; older APKs omit it.
 
 ---
 
@@ -182,6 +185,10 @@ Common values: `HOME`, `BACK`, `MENU`, `DPAD_UP`, `DPAD_DOWN`, `DPAD_LEFT`, `DPA
 sleep
 wake
 ```
+
+- `sleep` locks the screen through the accessibility service, so it needs Android 9+ (Fire OS 7+) with the service bound. It does nothing on Fire OS 6.7, which refuses the service.
+- `wake` takes a screen wake lock (`ACQUIRE_CAUSES_WAKEUP`), meant to wake the stick and end the screensaver. Not yet confirmed on hardware. It can't turn the TV on unless the TV follows the stick over HDMI-CEC.
+- `cmd/launch` and `cmd/key HOME` take the same wake lock first, so the app should open in front of the screensaver rather than behind it (also awaiting confirmation on hardware).
 
 ### `fire2mqtt/<device_id>/cmd/media`
 ```

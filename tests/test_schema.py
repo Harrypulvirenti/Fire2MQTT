@@ -201,6 +201,15 @@ class TestScreenPayload:
         result = ScreenPayload.from_raw({})
         assert result["on"] is False
 
+    def test_dreaming(self, mqtt_payloads):
+        result = ScreenPayload.from_raw(mqtt_payloads["screen_dreaming"])
+        assert result["on"] is True
+        assert result["dreaming"] is True
+
+    def test_missing_dreaming_defaults_false(self, mqtt_payloads):
+        # APKs before 0.8.0 don't send it.
+        assert ScreenPayload.from_raw(mqtt_payloads["screen_on"])["dreaming"] is False
+
 
 # ---------------------------------------------------------------------------
 # VolumePayload

@@ -17,6 +17,7 @@ class CommandRouter(
     private val appLauncher: AppLauncher,
     private val volumeController: VolumeController,
     private val mediaTransport: MediaTransport,
+    private val screenWaker: ScreenWaker,
 ) {
 
     private val keyMap = mapOf(
@@ -44,12 +45,15 @@ class CommandRouter(
     fun route(topic: String, payload: String) {
         when (topic) {
             TopicSchema.cmdLaunch(prefix, deviceId) -> {
+                // Otherwise the app opens behind the screensaver (see ScreenWaker).
+                screenWaker.wake()
                 appLauncher.launch(payload.trim())
             }
             TopicSchema.cmdKey(prefix, deviceId) -> {
                 val keyCode = keyMap[payload.trim().uppercase()]
                 if (keyCode != null) {
                     logger.i { "Key command: ${payload.trim()}" }
+                    if (keyCode == KeyEvent.KEYCODE_HOME) screenWaker.wake()
                     when {
                         keyCode in MediaTransport.MEDIA_KEYS -> sendMediaKey(keyCode)
                         Fire2MqttAccessibilityService.sendKey(keyCode) -> Unit
@@ -77,7 +81,7 @@ class CommandRouter(
                 logger.i { "Power command: ${payload.trim()}" }
                 when (payload.trim().lowercase()) {
                     "sleep" -> Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_SLEEP)
-                    "wake" -> Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_WAKEUP)
+                    "wake" -> screenWaker.wake()
                     else -> logger.w { "Unknown power command: $payload" }
                 }
             }

@@ -74,6 +74,7 @@
   },
   "screen_on": {"on": true, "ts": 1747000000000},
   "screen_off": {"on": false, "ts": 1747000100000},
+  "screen_dreaming": {"on": true, "dreaming": true, "ts": 1747000200000},
   "volume_8_of_15": {"level": 8, "max": 15, "mute": false, "ts": 1747000000000},
   "volume_muted": {"level": 8, "max": 15, "mute": true, "ts": 1747000010000}
 }

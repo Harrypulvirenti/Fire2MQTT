@@ -9,6 +9,7 @@ import io.mockk.mockkObject
 import io.mockk.runs
 import io.mockk.unmockkAll
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -25,6 +26,7 @@ class CommandRouterTest {
     private lateinit var appLauncher: AppLauncher
     private lateinit var volumeController: VolumeController
     private lateinit var mediaTransport: MediaTransport
+    private lateinit var screenWaker: ScreenWaker
 
     @BeforeEach
     fun setUp() {
@@ -34,12 +36,13 @@ class CommandRouterTest {
         mockkObject(Fire2MqttAccessibilityService.Companion)
 
         mediaTransport = mockk()
+        screenWaker = mockk(relaxed = true)
         // No readable session by default, so media keys fall back to key dispatch.
         every { mediaTransport.send(any()) } returns false
         every { appLauncher.launch(any()) } returns true
         every { Fire2MqttAccessibilityService.sendKey(any()) } returns true
 
-        router = CommandRouter(PREFIX, DEVICE_ID, appLauncher, volumeController, mediaTransport)
+        router = CommandRouter(PREFIX, DEVICE_ID, appLauncher, volumeController, mediaTransport, screenWaker)
     }
 
     @AfterEach
@@ -50,6 +53,14 @@ class CommandRouterTest {
     @Test fun `cmdLaunch routes package name to AppLauncher`() {
         router.route(TopicSchema.cmdLaunch(PREFIX, DEVICE_ID), "com.example.app")
         verify { appLauncher.launch("com.example.app") }
+    }
+
+    @Test fun `cmdLaunch wakes the screen before launching`() {
+        router.route(TopicSchema.cmdLaunch(PREFIX, DEVICE_ID), "com.example.app")
+        verifyOrder {
+            screenWaker.wake()
+            appLauncher.launch("com.example.app")
+        }
     }
 
     @Test fun `cmdLaunch trims whitespace from payload`() {
@@ -92,6 +103,21 @@ class CommandRouterTest {
     @Test fun `cmdKey HOME skips the launcher when accessibility delivers it`() {
         router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "HOME")
         verify(exactly = 0) { appLauncher.goHome() }
+    }
+
+    @Test fun `cmdKey HOME wakes the screen first`() {
+        every { Fire2MqttAccessibilityService.sendKey(any()) } returns false
+        every { appLauncher.goHome() } just runs
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "HOME")
+        verifyOrder {
+            screenWaker.wake()
+            appLauncher.goHome()
+        }
+    }
+
+    @Test fun `cmdKey BACK does not wake the screen`() {
+        router.route(TopicSchema.cmdKey(PREFIX, DEVICE_ID), "BACK")
+        verify(exactly = 0) { screenWaker.wake() }
     }
 
     @Test fun `cmdKey BACK has no fallback when accessibility is not connected`() {
@@ -145,9 +171,10 @@ class CommandRouterTest {
         verify { Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_SLEEP) }
     }
 
-    @Test fun `cmdPower wake dispatches KEYCODE_WAKEUP`() {
+    @Test fun `cmdPower wake wakes the screen`() {
         router.route(TopicSchema.cmdPower(PREFIX, DEVICE_ID), "wake")
-        verify { Fire2MqttAccessibilityService.sendKey(KeyEvent.KEYCODE_WAKEUP) }
+        verify { screenWaker.wake() }
+        verify(exactly = 0) { Fire2MqttAccessibilityService.sendKey(any()) }
     }
 
     @Test fun `cmdPower unknown payload does nothing`() {
