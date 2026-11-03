@@ -23,10 +23,12 @@ from dataclasses import dataclass, field
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
 from .const import (
     ADB_KEY_FILENAME,
     ADB_PORT,
+    DOMAIN,
     EXTRA_BROKER_HOST,
     EXTRA_BROKER_PASSWORD,
     EXTRA_BROKER_PORT,
@@ -37,6 +39,7 @@ from .const import (
     FIRE2MQTT_LAUNCH_COMPONENT,
     FIRE2MQTT_PACKAGE,
     GITHUB_LATEST_RELEASE_URL,
+    GITHUB_RELEASE_BY_TAG_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -400,20 +403,40 @@ async def _async_has_write_secure_settings(device) -> bool:
     return "granted=true" in out
 
 
-async def _async_download_apk(hass: HomeAssistant) -> str:
-    """Resolve the latest release's .apk asset, download it to a temp file, return the path."""
-    session = async_get_clientsession(hass)
+async def _async_fetch_release(session, url: str) -> dict | None:
+    """GET a GitHub release; None when it doesn't exist (HTTP 404)."""
     try:
-        async with session.get(
-            GITHUB_LATEST_RELEASE_URL, headers={"Accept": "application/vnd.github+json"}
-        ) as resp:
+        async with session.get(url, headers={"Accept": "application/vnd.github+json"}) as resp:
+            if resp.status == 404:
+                return None
             if resp.status != 200:
                 raise ProvisionError("download_failed", f"release lookup HTTP {resp.status}")
-            release = await resp.json()
+            return await resp.json()
     except ProvisionError:
         raise
     except Exception as err:  # noqa: BLE001 - network errors surface as one reason
         raise ProvisionError("download_failed", str(err)) from err
+
+
+async def _async_download_apk(hass: HomeAssistant) -> str:
+    """Download the .apk of the release matching this integration's version, return its path.
+
+    Not ``/releases/latest``: that skips pre-releases, so a beta integration would push the last
+    stable APK, which Android refuses as a downgrade over a beta APK.
+    """
+    version = (await async_get_integration(hass, DOMAIN)).version
+    session = async_get_clientsession(hass)
+    release = await _async_fetch_release(
+        session, GITHUB_RELEASE_BY_TAG_URL.format(version=version)
+    )
+    if release is None:
+        # An unreleased version (e.g. a dev checkout): the latest stable APK is the best match.
+        _LOGGER.warning(
+            "Fire2MQTT: no release tagged v%s; installing the latest release instead", version
+        )
+        release = await _async_fetch_release(session, GITHUB_LATEST_RELEASE_URL)
+        if release is None:
+            raise ProvisionError("download_failed", "release lookup HTTP 404")
 
     apk_asset = next(
         (

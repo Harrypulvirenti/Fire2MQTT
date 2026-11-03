@@ -417,3 +417,130 @@ def test_build_launch_cmd_quotes_password_with_shell_metacharacters():
     assert shlex.quote(secret) in cmd
     tokens = shlex.split(cmd)
     assert tokens[tokens.index("broker_password") + 1] == secret
+
+
+# --- APK download: the release matching the integration's version ---
+
+_APK_BYTES = b"fake-apk"
+_BETA = "0.8.0-beta2"
+
+
+def _release(tag: str) -> dict:
+    import hashlib
+
+    return {
+        "tag_name": tag,
+        "assets": [{
+            "name": "app-release.apk",
+            "browser_download_url": f"https://example.invalid/{tag}/app-release.apk",
+            "digest": "sha256:" + hashlib.sha256(_APK_BYTES).hexdigest(),
+        }],
+    }
+
+
+class _FakeResponse:
+    def __init__(self, status: int = 200, json_body=None, body: bytes = b"") -> None:
+        self.status = status
+        self._json = json_body
+        self._body = body
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def json(self):
+        return self._json
+
+    async def read(self):
+        return self._body
+
+
+class _FakeSession:
+    """Serves canned responses by URL and records what was requested. A real aiohttp session
+    would start pycares' resolver thread, which the HA test harness flags as lingering."""
+
+    def __init__(self, routes: dict[str, _FakeResponse]) -> None:
+        self._routes = routes
+        self.requested: list[str] = []
+
+    def get(self, url, **_kwargs):
+        self.requested.append(url)
+        return self._routes.get(url, _FakeResponse(status=404))
+
+
+@pytest.fixture
+def download_env(hass: HomeAssistant):
+    """Pin the integration version and run executor jobs inline; yields a setter for the fake
+    session so each test supplies its own routes."""
+
+    async def _run(func, *args):
+        return func(*args)
+
+    holder: dict[str, _FakeSession] = {}
+    with (
+        patch.object(hass, "async_add_executor_job", side_effect=_run),
+        patch(
+            "custom_components.fire2mqtt.adb_provision.async_get_integration",
+            AsyncMock(return_value=MagicMock(version=_BETA)),
+        ),
+        patch(
+            "custom_components.fire2mqtt.adb_provision.async_get_clientsession",
+            side_effect=lambda _hass: holder["session"],
+        ),
+    ):
+        def _use(routes: dict[str, _FakeResponse]) -> _FakeSession:
+            holder["session"] = _FakeSession(routes)
+            return holder["session"]
+
+        yield _use
+
+
+async def _download_and_read(hass: HomeAssistant) -> bytes:
+    import os
+
+    from custom_components.fire2mqtt.adb_provision import _async_download_apk
+
+    path = await _async_download_apk(hass)
+    try:
+        with open(path, "rb") as fh:
+            return fh.read()
+    finally:
+        os.remove(path)
+
+
+async def test_download_uses_release_matching_integration_version(
+    hass: HomeAssistant, download_env
+):
+    # A beta integration must push the beta APK; /releases/latest is the last stable one and
+    # Android refuses it over a beta as a downgrade (#45).
+    from custom_components.fire2mqtt.const import (
+        GITHUB_LATEST_RELEASE_URL,
+        GITHUB_RELEASE_BY_TAG_URL,
+    )
+
+    session = download_env({
+        GITHUB_RELEASE_BY_TAG_URL.format(version=_BETA): _FakeResponse(
+            json_body=_release(f"v{_BETA}")
+        ),
+        GITHUB_LATEST_RELEASE_URL: _FakeResponse(json_body=_release("v0.7.3")),
+        f"https://example.invalid/v{_BETA}/app-release.apk": _FakeResponse(body=_APK_BYTES),
+    })
+
+    assert await _download_and_read(hass) == _APK_BYTES
+    assert GITHUB_LATEST_RELEASE_URL not in session.requested
+
+
+async def test_download_falls_back_to_latest_for_unreleased_version(
+    hass: HomeAssistant, download_env
+):
+    from custom_components.fire2mqtt.const import GITHUB_LATEST_RELEASE_URL
+
+    session = download_env({
+        GITHUB_LATEST_RELEASE_URL: _FakeResponse(json_body=_release("v0.7.3")),
+        "https://example.invalid/v0.7.3/app-release.apk": _FakeResponse(body=_APK_BYTES),
+    })
+
+    assert await _download_and_read(hass) == _APK_BYTES
+    assert session.requested[-1].endswith("v0.7.3/app-release.apk")

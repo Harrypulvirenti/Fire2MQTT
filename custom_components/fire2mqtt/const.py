@@ -43,6 +43,10 @@ EXTRA_USE_TLS = "use_tls"
 GITHUB_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/Harrypulvirenti/Fire2MQTT/releases/latest"
 )
+# The release matching the integration's own version (APK and integration ship in lockstep).
+GITHUB_RELEASE_BY_TAG_URL = (
+    "https://api.github.com/repos/Harrypulvirenti/Fire2MQTT/releases/tags/v{version}"
+)
 GITHUB_RELEASES_URL = "https://github.com/Harrypulvirenti/Fire2MQTT/releases"
 
 TOPIC_STATUS = "{prefix}/{device_id}/status"
