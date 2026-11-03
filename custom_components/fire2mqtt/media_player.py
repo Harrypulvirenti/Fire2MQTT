@@ -51,8 +51,9 @@ _HA_STATE_MAP = {
 # responsive but every sub-second flicker is absorbed.
 _STATE_DEBOUNCE_SECONDS = 1.5
 
-# TURN_ON/TURN_OFF map to cmd/power "wake"/"sleep" (KEYCODE_WAKEUP/KEYCODE_SLEEP in the APK),
-# so the entity can put the Fire TV to sleep and wake it back up.
+# TURN_ON/TURN_OFF map to cmd/power "wake"/"sleep". The APK wakes with a screen wake lock and
+# sleeps through the accessibility service's lock-screen action, so turn_off needs Fire OS 7+
+# (6.7 refuses the service). Both act on the stick; the TV follows only over HDMI-CEC.
 SUPPORTED_FEATURES = (
     MediaPlayerEntityFeature.TURN_ON
     | MediaPlayerEntityFeature.TURN_OFF
