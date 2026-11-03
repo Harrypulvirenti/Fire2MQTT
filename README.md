@@ -212,7 +212,7 @@ GitHub release:
 
 - **One-click update over ADB**: install button pushes the new APK directly to the stick
 - **Signing-key self-heal**: if the APK is reinstalled under a new signing key (e.g. switching from a debug to release build), the update entity detects the mismatch and automatically re-provisions broker credentials so the app reconnects without any manual steps
-- **Re-provision button**: if the app loses its broker config (e.g. after a factory reset or accidental uninstall), the Re-provision button re-pushes credentials over ADB without a full reinstall
+- **Re-provision button**: if the app loses its broker config (e.g. after a factory reset or accidental uninstall), the Re-provision button re-pushes credentials over ADB without a full reinstall, and reports success or failure as a Home Assistant notification
 
 Both the Update entity and the Re-provision button remain available in HA even when the
 device is offline, so you can always recover without physical access to the stick.
